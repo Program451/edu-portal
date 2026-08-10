@@ -1,0 +1,2562 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ЕдуПортал — Студент</title>
+  <link rel="stylesheet" href="shared.css">
+  <script src="shared.js"></script>
+  <script src="i18n.js"></script>
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <style>
+    .playlist-card {
+      border:        1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      background:    var(--surface);
+      box-shadow:    var(--shadow);
+      overflow:      hidden;
+      margin-bottom: 16px;
+    }
+
+    .playlist-header {
+      display:     flex;
+      align-items: center;
+      gap:         14px;
+      padding:     16px 20px;
+      cursor:      pointer;
+      user-select: none;
+      transition:  background var(--transition);
+    }
+
+    .playlist-header:hover { background: var(--bg); }
+
+    .playlist-icon {
+      width:           42px;
+      height:          42px;
+      border-radius:   var(--radius);
+      background:      var(--purple-light);
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      font-size:       1.2rem;
+      flex-shrink:     0;
+    }
+
+    .playlist-info  { flex: 1; }
+    .playlist-title { font-weight: 650; font-size: 1rem; }
+    .playlist-meta  { font-size: 0.8rem; color: var(--text2); margin-top: 2px; }
+
+    .playlist-chevron {
+      color:      var(--text3);
+      transition: transform var(--transition);
+    }
+    .playlist-chevron.open { transform: rotate(180deg); }
+
+    .playlist-lessons {
+      border-top: 1.5px solid var(--border);
+      display:    none;
+    }
+    .playlist-lessons.open { display: block; }
+
+    .lesson-row {
+      display:       flex;
+      align-items:   center;
+      gap:           12px;
+      padding:       12px 20px;
+      border-bottom: 1px solid var(--border);
+      cursor:        pointer;
+      transition:    background var(--transition);
+    }
+    .lesson-row:last-child { border-bottom: none; }
+    .lesson-row:hover      { background: var(--purple-light); }
+
+    .lesson-num {
+      width:           28px;
+      height:          28px;
+      border-radius:   50%;
+      background:      var(--surface2);
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      font-size:       0.78rem;
+      font-weight:     600;
+      color:           var(--text2);
+      flex-shrink:     0;
+    }
+
+    .lesson-info  { flex: 1; }
+    .lesson-title { font-weight: 500; font-size: 0.9rem; }
+
+    .lesson-badges {
+      display:    flex;
+      gap:        5px;
+      margin-top: 4px;
+    }
+
+    .media-badge {
+      font-size:     0.7rem;
+      padding:       2px 8px;
+      border-radius: 99px;
+      font-weight:   600;
+    }
+    .media-badge-2d  { background: var(--blue-light);  color: var(--blue);  }
+    .media-badge-vr  { background: #fff3e0;             color: #e65100;      }
+    .media-badge-pdf { background: var(--teal-light);   color: var(--teal);  }
+
+    /* Модалка урока */
+    .lesson-modal-body { padding: 0 !important; }
+
+    .lesson-video-wrap {
+      background:    #000;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      overflow:      hidden;
+    }
+
+    .lesson-video-wrap video {
+      width:    100%;
+      display:  block;
+      max-height: 420px;
+    }
+
+    .lesson-details {
+      padding: 20px 24px;
+    }
+
+    /* Д/З блок */
+    .hw-submit-block {
+      margin-top:    20px;
+      padding:       18px;
+      background:    var(--bg);
+      border-radius: var(--radius-lg);
+      border:        1.5px solid var(--border);
+    }
+
+    .hw-submit-block h4 {
+      margin-bottom: 12px;
+      display:       flex;
+      align-items:   center;
+      gap:           8px;
+    }
+
+    .hw-status-submitted {
+      display:       flex;
+      align-items:   center;
+      gap:           10px;
+      padding:       10px 14px;
+      background:    var(--teal-light);
+      border-radius: var(--radius);
+      color:         var(--teal);
+      font-weight:   500;
+      font-size:     0.88rem;
+    }
+
+    .hw-status-graded {
+      display:       flex;
+      align-items:   center;
+      gap:           12px;
+      padding:       12px 16px;
+      background:    var(--purple-light);
+      border-radius: var(--radius);
+    }
+
+    /* Тест — экран прохождения */
+    .quiz-screen {
+      position:   fixed;
+      inset:      0;
+      background: var(--bg);
+      z-index:    300;
+      display:    flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .quiz-screen-header {
+      background:    var(--surface);
+      border-bottom: 1.5px solid var(--border);
+      padding:       16px 28px;
+      display:       flex;
+      align-items:   center;
+      gap:           16px;
+      position:      sticky;
+      top:           0;
+      z-index:       10;
+    }
+
+    .quiz-screen-body {
+      flex:       1;
+      max-width:  700px;
+      margin:     0 auto;
+      width:      100%;
+      padding:    32px 24px;
+    }
+
+    .quiz-screen-footer {
+      background:    var(--surface);
+      border-top:    1.5px solid var(--border);
+      padding:       16px 28px;
+      display:       flex;
+      align-items:   center;
+      justify-content: space-between;
+      position:      sticky;
+      bottom:        0;
+    }
+
+    .quiz-result-screen {
+      text-align: center;
+      padding:    48px 24px;
+    }
+
+    .quiz-result-score {
+      font-size:   4rem;
+      font-weight: 800;
+      color:       var(--purple);
+      line-height: 1;
+      margin:      16px 0 8px;
+    }
+
+    .quiz-result-label {
+      font-size:  1.1rem;
+      color:      var(--text2);
+      margin-bottom: 24px;
+    }
+
+    /* Оценки */
+    .grade-row {
+      display:       flex;
+      align-items:   center;
+      gap:           14px;
+      padding:       12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .grade-row:last-child { border-bottom: none; }
+
+    .grades-summary-box {
+      display:       flex;
+      align-items:   center;
+      gap:           28px;
+      padding:       20px 24px;
+      background:    var(--purple-light);
+      border-radius: var(--radius-lg);
+      margin-bottom: 20px;
+    }
+
+    .avg-big {
+      font-size:   3rem;
+      font-weight: 800;
+      color:       var(--purple);
+      line-height: 1;
+    }
+
+    /* ─── ПРОСМОТР WORD-ДОКУМЕНТА В БРАУЗЕРЕ ─── */
+    .docx-preview-box {
+      max-height:    500px;
+      overflow-y:    auto;
+      border:        1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      background:    #fff;
+      padding:       24px 28px;
+    }
+    .docx-content {
+      color:       #1a1a18;
+      font-size:   0.95rem;
+      line-height: 1.65;
+      word-wrap:   break-word;
+    }
+    .docx-content h1, .docx-content h2, .docx-content h3 {
+      margin:      1em 0 0.5em;
+      font-weight: 700;
+      color:       var(--text);
+    }
+    .docx-content p { margin: 0 0 0.9em; }
+    .docx-content ul, .docx-content ol { margin: 0 0 0.9em 1.4em; }
+    .docx-content table {
+      border-collapse: collapse;
+      width:           100%;
+      margin:          0.8em 0;
+    }
+    .docx-content table td, .docx-content table th {
+      border:  1px solid var(--border);
+      padding: 6px 10px;
+    }
+    .docx-content img { max-width: 100%; height: auto; }
+    .docx-content a { color: var(--purple); }
+
+    @media (max-width: 768px) {
+      .docx-preview-box { padding: 16px; max-height: 400px; }
+      .docx-content { font-size: 0.9rem; }
+    }
+
+    /* ── Видеозвонки ─────────────────────────────────────── */
+    .call-banner {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      background: linear-gradient(135deg, #7c5cff, #5c3cff); color: #fff;
+      padding: 14px 18px; border-radius: 14px; margin: 0 0 18px; flex-wrap: wrap;
+    }
+    .call-banner-left { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+    .call-banner-dot { width: 9px; height: 9px; border-radius: 50%; background: #fff; animation: callPulse 1.3s infinite; }
+    @keyframes callPulse { 0%,100%{opacity:1;} 50%{opacity:.25;} }
+    .call-banner-join {
+      background: #fff; color: #5c3cff; border: none; border-radius: 9px;
+      padding: 8px 16px; font-weight: 700; cursor: pointer;
+    }
+
+    .call-overlay {
+      position: fixed; inset: 0; background: #14121f; z-index: 2000;
+      display: flex; flex-direction: column; color: #fff;
+    }
+    .call-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 18px; background: #1c1930; flex-wrap: wrap; gap: 10px;
+    }
+    .call-topbar-title { font-weight: 700; font-size: 1rem; }
+    .call-topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .call-btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+      border-radius: 9px; border: 1px solid #ffffff22; background: #2a2645;
+      color: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    }
+    .call-btn:hover { background: #362f5c; }
+    .call-btn.danger { background: #ff3b3b; border-color: #ff3b3b; }
+    .call-btn.danger:hover { background: #e33333; }
+    .call-btn.active-toggle { background: #7c5cff; border-color: #7c5cff; }
+    .call-btn.muted-indicator { background: #ff3b3b55; border-color: #ff3b3b; }
+
+    .call-body {
+      flex: 1; display: grid; gap: 14px; padding: 18px; overflow-y: auto;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      align-content: start;
+    }
+    .call-video-box { position: relative; background: #221f38; border-radius: 14px; overflow: hidden; aspect-ratio: 16/10; }
+    .call-video-box video { width: 100%; height: 100%; object-fit: cover; background: #000; }
+    .call-video-label {
+      position: absolute; left: 10px; bottom: 10px; background: #00000088;
+      padding: 4px 10px; border-radius: 7px; font-size: 0.8rem;
+    }
+    .call-video-avatar {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: #2a2645; font-size: 2.2rem; font-weight: 700; color: #ffffff88;
+    }
+
+    .call-hand-fab {
+      position: fixed; right: 22px; bottom: 22px; z-index: 2001;
+      width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer;
+      background: #ffcc33; font-size: 1.6rem; box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    }
+    .call-hand-fab.active { background: #ff9900; animation: handWiggle 1s infinite; }
+    @keyframes handWiggle { 0%,100%{ transform: rotate(0deg);} 50%{ transform: rotate(-12deg);} }
+
+    @media (max-width: 768px) {
+      .call-body { grid-template-columns: 1fr; padding: 10px; }
+
+      /* Компактные кнопки звонка на телефоне — только иконки, без подписей */
+      .call-btn-label { display: none; }
+      .call-btn { padding: 10px; min-width: 42px; justify-content: center; gap: 0; }
+      .call-topbar { padding: 10px 12px; }
+      .call-topbar-title {
+        font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis;
+        white-space: nowrap; max-width: 40vw;
+      }
+      .call-topbar-actions { gap: 6px; }
+
+      /* Кнопка "поднять руку" не должна перекрывать нижние элементы управления звонком */
+      .call-hand-fab { right: 14px; bottom: 14px; width: 52px; height: 52px; font-size: 1.35rem; }
+
+      /* Экран прохождения теста — уже помещается в узкий экран */
+      .quiz-screen-header { padding: 12px 16px; gap: 10px; }
+      .quiz-screen-body   { padding: 20px 16px; }
+      .quiz-screen-footer { padding: 12px 16px; }
+      #quizTitleLabel {
+        max-width: 55vw; overflow: hidden; text-overflow: ellipsis;
+        white-space: nowrap; display: inline-block; vertical-align: middle;
+      }
+    }
+
+    /* На тач-устройствах поля ввода должны быть от 16px, иначе Safari на iPhone
+       автоматически увеличивает масштаб страницы при фокусе на поле */
+    @media (max-width: 768px) {
+      input[type="text"], input[type="password"], input[type="email"],
+      input[type="number"], input[type="search"], input[type="tel"],
+      select, textarea {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+        <rect x="6"  y="10" width="26" height="32" rx="4"
+              fill="var(--purple-light)" stroke="var(--purple)" stroke-width="2"/>
+        <rect x="10" y="6"  width="26" height="32" rx="4"
+              fill="var(--purple-light)" stroke="var(--purple)" stroke-width="2" opacity="0.6"/>
+        <line x1="16" y1="16" x2="28" y2="16"
+              stroke="var(--purple)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="16" y1="21" x2="28" y2="21"
+              stroke="var(--purple)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="16" y1="26" x2="22" y2="26"
+              stroke="var(--purple)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M34 8 L32 15 L38 12 L33 18 L36 11 L30 14 Z"
+              fill="var(--amber)" stroke="var(--amber)" stroke-width="0.5"/>
+      </svg>
+      <span class="sidebar-logo-text" data-i18n="login.brandName">ЕдуПортал</span>
+      <button class="sidebar-close-btn" onclick="closeSidebar()" aria-label="Закрыть меню" data-i18n-title="sidebar.close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="sidebar-user-name" id="sidebarName"><span data-i18n="common.student">Студент</span></div>
+      <div class="sidebar-user-role">
+        <span class="badge badge-student"><span data-i18n="common.student">Студент</span></span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title"><span data-i18n="s.learning">Обучение</span></div>
+
+      <button class="nav-item active" onclick="showSection('playlists')"
+              id="nav-playlists">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <line x1="8"  y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <span data-i18n="nav.playlistsStudent">Плейлисты</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('grades')" id="nav-grades">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6"  y1="20" x2="6"  y2="14"/>
+        </svg>
+        <span data-i18n="nav.myGrades">Мои оценки</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('quizzes')" id="nav-quizzes">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span data-i18n="nav.quizzes">Тесты</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('schedule')" id="nav-schedule">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span data-i18n="nav.schedule">Расписание</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('library')" id="nav-library">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+        </svg>
+        <span data-i18n="nav.library">Библиотека</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('profile')" id="nav-profile">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span data-i18n="sidebar.profile">Мой профиль</span>
+      </button>
+
+      <div class="nav-divider"></div>
+
+      <button class="nav-item" onclick="doLogout()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span data-i18n="sidebar.logout">Выйти</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- ═══ ОСНОВНОЙ КОНТЕНТ ═══ -->
+  <div class="main-content">
+    <header class="main-header">
+      <button class="hamburger" onclick="toggleSidebar()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6"  x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <h1 id="pageTitle"><span data-i18n="s.playlists">Плейлисты</span></h1>
+      <div class="flex items-center gap-12" style="margin-left:auto">
+        <div class="notif-wrap">
+          <button class="notif-bell" onclick="toggleNotifDropdown(event)" title="Уведомления">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <span class="notif-badge hidden" id="notifBadge">0</span>
+          </button>
+          <div class="notif-dropdown hidden" id="notifDropdown">
+            <div class="notif-dropdown-header">
+              <h4><span data-i18n="common.notifications">Уведомления</span></h4>
+              <button class="notif-mark-all" onclick="markAllNotificationsRead()"><span data-i18n="s.readAll">Прочитать все</span></button>
+            </div>
+            <div class="notif-list" id="notifList">
+              <div class="notif-empty"><span data-i18n="common.loading">Загрузка...</span></div>
+            </div>
+          </div>
+        </div>
+        <span class="badge badge-student"><span data-i18n="common.student">Студент</span></span>
+      </div>
+    </header>
+
+    <div class="page-body">
+
+      <!-- ─── БАННЕР: ИДЁТ ВИДЕОЗВОНОК ─── -->
+      <div class="call-banner hidden" id="callBanner">
+        <div class="call-banner-left">
+          <span class="call-banner-dot"></span>
+          <span id="callBannerText"><span data-i18n="s.teacherStartedCall">Учитель начал видеозвонок</span></span>
+        </div>
+        <button class="call-banner-join" onclick="joinVideoCall()"><span data-i18n="s.join">Присоединиться</span></button>
+      </div>
+
+      <!-- ─── РАЗДЕЛ: ПЛЕЙЛИСТЫ ─── -->
+      <section id="section-playlists">
+        <div class="mb-20">
+          <h2><span data-i18n="s.studyPlaylists">Учебные плейлисты</span></h2>
+          <p class="text-muted text-sm mt-8">
+            Выберите плейлист и начните обучение
+          </p>
+        </div>
+        <div id="playlistsList">
+          <div class="card mb-16">
+            <div class="skeleton skeleton-text w-60"></div>
+            <div class="skeleton skeleton-text w-40 mt-8"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: МОИ ОЦЕНКИ ─── -->
+      <section id="section-grades" class="hidden">
+        <div class="mb-20">
+          <h2><span data-i18n="s.myGradesTitle">Мои оценки</span></h2>
+          <p class="text-muted text-sm mt-8"><span data-i18n="s.gradeJournal">Журнал ваших оценок</span></p>
+        </div>
+        <div id="gradesContent">
+          <div class="skeleton skeleton-card"></div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: ТЕСТЫ ─── -->
+      <section id="section-quizzes" class="hidden">
+        <div class="mb-20">
+          <h2><span data-i18n="s.testsTitle">Тесты</span></h2>
+          <p class="text-muted text-sm mt-8">
+            Пройдите тесты по пройденным темам
+          </p>
+        </div>
+        <div id="quizzesList">
+          <div class="skeleton skeleton-card"></div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: РАСПИСАНИЕ ─── -->
+      <section id="section-schedule" class="hidden">
+        <div class="mb-20">
+          <h2><span data-i18n="t.mySchedule">Моё расписание</span></h2>
+          <p class="text-muted text-sm mt-8"><span data-i18n="s.groupScheduleDesc">Расписание занятий вашей группы</span></p>
+        </div>
+        <div id="studentScheduleView">
+          <div class="skeleton skeleton-card"></div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: БИБЛИОТЕКА (только просмотр) ─── -->
+      <section id="section-library" class="hidden">
+        <div id="libraryBooksDetail-view" class="hidden">
+          <div class="flex items-center gap-12 mb-20">
+            <button class="btn btn-ghost btn-sm" onclick="closePlaylistDetail()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+              </svg>
+              Назад к подборкам
+            </button>
+            <h2 id="libraryPlaylistDetailTitle"><span data-i18n="lib.collection">Подборка</span></h2>
+          </div>
+          <p class="text-muted text-sm mb-16" id="libraryPlaylistDetailDesc"></p>
+          <div id="libraryPlaylistDetailGrid" class="grid-3"></div>
+        </div>
+
+        <div id="libraryMain-view">
+          <div class="mb-20">
+            <h2><span data-i18n="lib.bookLibrary">Библиотека книг</span></h2>
+            <p class="text-muted text-sm mt-8"><span data-i18n="s.sharedBooksDesc">Книги и материалы, которыми поделились с вами учителя</span></p>
+          </div>
+
+          <div class="form-group" style="max-width:360px">
+            <input type="text" id="libraryBookSearch" placeholder="Поиск по названию или автору..." data-i18n-placeholder="ph.searchByTitleAuthor"
+                   oninput="debouncedLoadLibraryBooks()">
+          </div>
+
+          <div id="libraryBooksGrid" class="grid-3 mb-24">
+            <div class="card"><div class="skeleton skeleton-text w-60"></div></div>
+          </div>
+
+          <h3 class="mt-24 mb-16"><span data-i18n="lib.collections">Подборки</span></h3>
+          <div id="libraryPlaylistsGrid" class="grid-3"></div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: МОЙ ПРОФИЛЬ ─── -->
+      <section id="section-profile" class="hidden">
+        <div class="mb-20">
+          <h2><span data-i18n="profile.title">Мой профиль</span></h2>
+          <p class="text-muted text-sm mt-8"><span data-i18n="profile.personalDataSubtitle">Ваши личные данные и настройки входа</span></p>
+        </div>
+
+        <div class="card mb-20" style="max-width:640px">
+          <h3 class="mb-16"><span data-i18n="profile.personalData">Личные данные</span></h3>
+          <div class="form-error hidden" id="profileError"><span id="profileErrorText"></span></div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label><span data-i18n="common.fullName">ФИО</span></label>
+              <input type="text" id="profileFullName" disabled>
+              <span class="form-hint"><span data-i18n="profile.onlyAdminCanEditName">Изменить ФИО может только администратор</span></span>
+            </div>
+            <div class="form-group">
+              <label><span data-i18n="common.role">Роль</span></label>
+              <input type="text" id="profileRole" disabled>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label><span data-i18n="common.iin">ИИН</span></label>
+              <input type="text" id="profileIin" placeholder="12 цифр" data-i18n-placeholder="ph.digits12" maxlength="12" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label><span data-i18n="common.phone">Телефон</span></label>
+              <input type="text" id="profilePhone" placeholder="+7 700 000 00 00" autocomplete="off">
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label><span data-i18n="profile.birthDate">Дата рождения</span></label>
+              <input type="date" id="profileBirthDate">
+            </div>
+            <div class="form-group">
+              <label><span data-i18n="profile.address">Адрес</span></label>
+              <input type="text" id="profileAddress" placeholder="Необязательно" data-i18n-placeholder="ph.optional" autocomplete="off">
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label><span data-i18n="profile.parentName">ФИО родителя/опекуна</span></label>
+              <input type="text" id="profileParentName" placeholder="Необязательно" data-i18n-placeholder="ph.optional" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label><span data-i18n="profile.parentPhone">Телефон родителя</span></label>
+              <input type="text" id="profileParentPhone" placeholder="Необязательно" data-i18n-placeholder="ph.optional" autocomplete="off">
+            </div>
+          </div>
+          <button class="btn btn-primary" id="profileSaveBtn" onclick="saveMyProfile()"><span data-i18n="profile.saveData">Сохранить данные</span></button>
+        </div>
+
+        <div class="card" style="max-width:640px">
+          <h3 class="mb-16"><span data-i18n="profile.loginPassword">Логин и пароль</span></h3>
+          <p class="text-muted text-sm mb-16"><span data-i18n="profile.confirmPasswordToChange">Чтобы сменить логин или пароль, подтвердите текущий пароль.</span></p>
+          <div class="form-error hidden" id="credsError"><span id="credsErrorText"></span></div>
+          <div class="hidden mb-16" id="credsSuccess" style="color:var(--success,#16a34a);font-size:0.9rem">✓ Данные для входа обновлены</div>
+          <div class="form-group">
+            <label><span data-i18n="profile.currentPassword">Текущий пароль</span> <span class="required">*</span></label>
+            <input type="password" id="credsCurrentPassword" autocomplete="current-password">
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label><span data-i18n="profile.newLogin">Новый логин</span></label>
+              <input type="text" id="credsNewUsername" placeholder="Оставьте пустым, если не меняете" data-i18n-placeholder="ph.leaveEmptyIfUnchanged" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label><span data-i18n="profile.newPassword">Новый пароль</span></label>
+              <input type="password" id="credsNewPassword" placeholder="Минимум 6 символов" data-i18n-placeholder="ph.min6chars" autocomplete="new-password">
+            </div>
+          </div>
+          <button class="btn btn-primary" id="credsSaveBtn" onclick="saveMyCredentials()"><span data-i18n="profile.saveLoginPassword">Сохранить логин и пароль</span></button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА УРОКА ═══ -->
+<div class="modal-overlay hidden" id="lessonModal"
+     onclick="closeOnOverlay(event,'lessonModal')">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <h2 class="modal-title" id="lessonModalTitle"><span data-i18n="t.lesson">Урок</span></h2>
+      <button class="btn-icon" onclick="closeLesson()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6"  y2="18"/>
+          <line x1="6"  y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body" id="lessonModalBody">
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ЭКРАН ПРОХОЖДЕНИЯ ТЕСТА ═══ -->
+<div class="quiz-screen hidden" id="quizScreen">
+  <div class="quiz-screen-header">
+    <button class="btn btn-ghost btn-sm" onclick="exitQuiz()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2">
+        <line x1="19" y1="12" x2="5"  y2="12"/>
+        <polyline points="12 19 5 12 12 5"/>
+      </svg>
+      Выйти
+    </button>
+    <div class="quiz-progress" style="flex:1">
+      <span class="quiz-progress-label" id="quizProgressLabel">
+        Вопрос 1 из 10
+      </span>
+      <div class="progress-bar">
+        <div class="progress-bar-fill" id="quizProgressFill"
+             style="width:10%"></div>
+      </div>
+    </div>
+    <span class="text-sm text-muted" id="quizTitleLabel"></span>
+  </div>
+
+  <div class="quiz-screen-body" id="quizScreenBody">
+  </div>
+
+  <div class="quiz-screen-footer">
+    <button class="btn btn-ghost" id="quizPrevBtn" onclick="quizPrev()">
+      ← Назад
+    </button>
+    <span class="text-sm text-muted" id="quizStepInfo"></span>
+    <button class="btn btn-primary" id="quizNextBtn" onclick="quizNext()">
+      Далее →
+    </button>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ВЫБОР SCOPE ДЕМОНСТРАЦИИ ЭКРАНА ═══ -->
+<div class="modal-overlay hidden" id="callScreenScopeModal" onclick="closeOnOverlay(event,'callScreenScopeModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="s.demoScreen">Демонстрация экрана</span></h2>
+      <button class="btn-icon" onclick="closeModal('callScreenScopeModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted text-sm mb-8">Кому показать ваш экран?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="startOwnScreenShare('teacher-only')"><span data-i18n="s.onlyTeacher">Только преподавателю</span></button>
+      <button class="btn btn-primary" onclick="startOwnScreenShare('all')"><span data-i18n="s.showEveryone">Показать всем</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ЭКРАН ЗВОНКА ═══ -->
+<div class="call-overlay hidden" id="callOverlay">
+  <div class="call-topbar">
+    <div class="call-topbar-title" id="callTopbarTitle"><span data-i18n="common.videoCall">Видеозвонок</span></div>
+    <div class="call-topbar-actions">
+      <button class="call-btn" id="callMicBtn" onclick="toggleSelfMic()"><span class="call-btn-icon">🎙️</span><span class="call-btn-label"> Микрофон</span></button>
+      <button class="call-btn" id="callCamBtn" onclick="toggleSelfCam()"><span class="call-btn-icon">🎥</span><span class="call-btn-label"> Камера</span></button>
+      <button class="call-btn" id="callScreenShareBtn" onclick="openScreenShareMenu()"><span class="call-btn-icon">🖥️</span><span class="call-btn-label"> <span data-i18n="s.demoScreen">Демонстрация экрана</span></span></button>
+      <button class="call-btn danger" onclick="leaveVideoCall()"><span class="call-btn-icon">🚪</span><span class="call-btn-label"> Выйти</span></button>
+    </div>
+  </div>
+  <div class="call-body" id="callGrid"></div>
+</div>
+
+<button class="call-hand-fab hidden" id="callHandFab" onclick="toggleRaiseHand()" title="Поднять руку">🖐</button>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+<script>
+// ─────────────────────────────────────────────
+// ИНИЦИАЛИЗАЦИЯ
+// ─────────────────────────────────────────────
+const token = sessionStorage.getItem('token');
+const user  = JSON.parse(sessionStorage.getItem('user') || 'null');
+
+if (!token || !user || user.role !== 'student') {
+  window.location.href = 'index.html';
+}
+
+document.getElementById('sidebarName').textContent = user.full_name || user.username;
+
+// Состояние теста
+let quizData      = null;
+let quizAnswers   = {};
+let currentQIdx   = 0;
+
+// ─────────────────────────────────────────────
+// API ХЕЛПЕР
+// ─────────────────────────────────────────────
+async function api(method, path, body = null) {
+  const opts = { method, headers: { 'Authorization': `Bearer ${token}` } };
+  if (body instanceof FormData) {
+    opts.body = body;
+  } else if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(`${path}`, opts);
+  if (res.status === 401) {
+    sessionStorage.clear();
+    window.location.href = 'index.html';
+  }
+  return res.json();
+}
+
+// ─────────────────────────────────────────────
+// УВЕДОМЛЕНИЯ
+// ─────────────────────────────────────────────
+let lastSeenNotifId = 0;
+let notifDropdownOpen = false;
+
+function timeAgo(iso) {
+  const diffMs = Date.now() - new Date(iso + 'Z').getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1)  return 'только что';
+  if (min < 60) return `${min} мин назад`;
+  const hrs = Math.floor(min / 60);
+  if (hrs < 24) return `${hrs} ч назад`;
+  const days = Math.floor(hrs / 24);
+  return `${days} дн назад`;
+}
+
+async function loadNotifications({ silent = false } = {}) {
+  try {
+    const data = await api('GET', '/api/notifications');
+    if (!data || !data.notifications) return;
+
+    // Если появились новые уведомления с момента последней проверки — показываем toast
+    if (silent && lastSeenNotifId > 0) {
+      const fresh = data.notifications.filter(n => n.id > lastSeenNotifId);
+      fresh.reverse().forEach(n => showToast(n.message, 'success'));
+    }
+    if (data.notifications.length) {
+      lastSeenNotifId = Math.max(lastSeenNotifId, data.notifications[0].id);
+    }
+
+    renderNotifBadge(data.unread);
+    renderNotifList(data.notifications);
+  } catch (e) { /* тихо игнорируем сетевые ошибки при фоновом опросе */ }
+}
+
+function renderNotifBadge(unread) {
+  const badge = document.getElementById('notifBadge');
+  if (unread > 0) {
+    badge.textContent = unread > 9 ? '9+' : unread;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function renderNotifList(notifications) {
+  const el = document.getElementById('notifList');
+  if (!notifications.length) {
+    el.innerHTML = `<div class="notif-empty"><span data-i18n="s.noNotificationsYet">Пока нет уведомлений</span></div>`;
+    return;
+  }
+  el.innerHTML = notifications.map(n => `
+    <div class="notif-item ${n.is_read ? '' : 'unread'}" onclick="onNotifClick(${n.id}, ${n.is_read})">
+      <div class="notif-dot"></div>
+      <div class="notif-item-body">
+        <div class="notif-item-title">${escapeHtml(n.title)}</div>
+        <div class="notif-item-msg">${escapeHtml(n.message)}</div>
+        <div class="notif-item-time">${timeAgo(n.created_at)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function onNotifClick(id, isRead) {
+  if (!isRead) {
+    try {
+      await api('POST', `/api/notifications/${id}/read`);
+      loadNotifications();
+    } catch (e) {}
+  }
+}
+
+async function markAllNotificationsRead() {
+  try {
+    await api('POST', '/api/notifications/read-all');
+    loadNotifications();
+  } catch (e) { showToast(i18nT('toast.student.notificationsUpdateFailed'), 'error'); }
+}
+
+function toggleNotifDropdown(evt) {
+  evt.stopPropagation();
+  notifDropdownOpen = !notifDropdownOpen;
+  document.getElementById('notifDropdown').classList.toggle('hidden', !notifDropdownOpen);
+  if (notifDropdownOpen) loadNotifications();
+}
+
+document.addEventListener('click', (evt) => {
+  const dropdown = document.getElementById('notifDropdown');
+  const wrap = document.querySelector('.notif-wrap');
+  if (notifDropdownOpen && wrap && !wrap.contains(evt.target)) {
+    notifDropdownOpen = false;
+    dropdown.classList.add('hidden');
+  }
+});
+
+// Небольшая функция экранирования HTML (может отсутствовать выше в файле)
+if (typeof escapeHtml !== 'function') {
+  window.escapeHtml = function(str) {
+    const div = document.createElement('div');
+    div.textContent = str ?? '';
+    return div.innerHTML;
+  };
+}
+
+// Начальная загрузка + фоновый опрос раз в 20 секунд (новая оценка -> toast сразу)
+loadNotifications();
+setInterval(() => loadNotifications({ silent: true }), 20000);
+
+// ─────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────
+function showToast(message, type = 'success') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `<span>${{success:'✓',error:'✕',info:'ℹ',warning:'⚠'}[type]||'✓'}</span> ${message}`;
+  c.appendChild(t);
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 300);
+  }, 3500);
+}
+
+// ─────────────────────────────────────────────
+// НАВИГАЦИЯ
+// ─────────────────────────────────────────────
+function showSection(name) {
+  closeSidebar(); // на мобильном меню должно закрываться при переходе в раздел
+  document.querySelectorAll('[id^="section-"]').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`section-${name}`).classList.remove('hidden');
+  document.getElementById(`nav-${name}`).classList.add('active');
+  currentSectionName = name;
+  document.getElementById('pageTitle').textContent = STUDENT_TITLE_KEYS[name] ? i18nT(STUDENT_TITLE_KEYS[name]) : name;
+  if (name === 'grades')   loadMyGrades();
+  if (name === 'quizzes')  loadQuizzes();
+  if (name === 'schedule') loadStudentSchedule();
+  if (name === 'library')  { loadLibraryBooks(); loadLibraryPlaylists(); }
+  if (name === 'profile')  loadMyProfile();
+}
+const STUDENT_TITLE_KEYS = {
+  playlists: 'nav.playlistsStudent',
+  grades:    'nav.myGrades',
+  quizzes:   'nav.quizzes',
+  schedule:  'nav.schedule',
+  library:   'nav.library',
+  profile:   'sidebar.profile'
+};
+let currentSectionName = 'playlists';
+document.addEventListener('i18n:changed', () => {
+  const key = STUDENT_TITLE_KEYS[currentSectionName];
+  if (key) document.getElementById('pageTitle').textContent = i18nT(key);
+});
+
+// ─────────────────────────────────────────────
+// МОЙ ПРОФИЛЬ
+// ─────────────────────────────────────────────
+const ROLE_LABELS_RU = { admin: 'Администратор', operator: 'Оператор', teacher: 'Преподаватель', student: 'Студент' };
+
+async function loadMyProfile() {
+  document.getElementById('profileFullName').value = user.full_name || user.username;
+  document.getElementById('profileRole').value = ROLE_LABELS_RU[user.role] || user.role;
+  document.getElementById('profileError').classList.add('hidden');
+  try {
+    const profile = await api('GET', `/api/users/${user.id}/profile`);
+    if (profile.error) return;
+    document.getElementById('profileIin').value         = profile.iin || '';
+    document.getElementById('profilePhone').value       = profile.phone || '';
+    document.getElementById('profileBirthDate').value   = profile.birth_date || '';
+    document.getElementById('profileAddress').value     = profile.address || '';
+    document.getElementById('profileParentName').value  = profile.parent_name || '';
+    document.getElementById('profileParentPhone').value = profile.parent_phone || '';
+  } catch (e) { /* необязательные данные — молча пропускаем при ошибке сети */ }
+}
+
+async function saveMyProfile() {
+  const iin = document.getElementById('profileIin').value.trim();
+  const errBox  = document.getElementById('profileError');
+  const errText = document.getElementById('profileErrorText');
+  const btn = document.getElementById('profileSaveBtn');
+  errBox.classList.add('hidden');
+
+  if (iin && !/^\d{12}$/.test(iin)) {
+    errText.textContent = 'ИИН должен состоять ровно из 12 цифр';
+    errBox.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Сохраняем...';
+  try {
+    const res = await api('PUT', `/api/users/${user.id}/profile`, {
+      iin,
+      phone: document.getElementById('profilePhone').value.trim(),
+      birth_date: document.getElementById('profileBirthDate').value,
+      address: document.getElementById('profileAddress').value.trim(),
+      parent_name: document.getElementById('profileParentName').value.trim(),
+      parent_phone: document.getElementById('profileParentPhone').value.trim()
+    });
+    if (res.error) {
+      errText.textContent = res.error;
+      errBox.classList.remove('hidden');
+      return;
+    }
+    showToast(i18nT('toast.student.profileSaved'));
+  } catch (e) {
+    errText.textContent = 'Ошибка сети';
+    errBox.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Сохранить данные';
+  }
+}
+
+async function saveMyCredentials() {
+  const current_password = document.getElementById('credsCurrentPassword').value;
+  const new_username = document.getElementById('credsNewUsername').value.trim();
+  const new_password = document.getElementById('credsNewPassword').value;
+  const errBox  = document.getElementById('credsError');
+  const errText = document.getElementById('credsErrorText');
+  const okBox   = document.getElementById('credsSuccess');
+  const btn = document.getElementById('credsSaveBtn');
+  errBox.classList.add('hidden');
+  okBox.classList.add('hidden');
+
+  if (!current_password) {
+    errText.textContent = 'Введите текущий пароль для подтверждения';
+    errBox.classList.remove('hidden');
+    return;
+  }
+  if (!new_username && !new_password) {
+    errText.textContent = 'Укажите новый логин или новый пароль';
+    errBox.classList.remove('hidden');
+    return;
+  }
+  if (new_password && new_password.length < 6) {
+    errText.textContent = 'Новый пароль минимум 6 символов';
+    errBox.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Сохраняем...';
+  try {
+    const res = await api('PUT', '/api/me/credentials', { current_password, new_username, new_password });
+    if (res.error) {
+      errText.textContent = res.error;
+      errBox.classList.remove('hidden');
+      return;
+    }
+    // Логин мог измениться — сохраняем новый токен и перезагружаем страницу,
+    // чтобы дальше всё (шапка, запросы) использовало актуальные данные.
+    sessionStorage.setItem('token', res.token);
+    sessionStorage.setItem('user', JSON.stringify({ id: res.id, username: res.username, full_name: res.full_name, role: res.role }));
+    okBox.classList.remove('hidden');
+    document.getElementById('credsCurrentPassword').value = '';
+    document.getElementById('credsNewPassword').value = '';
+    showToast(i18nT('toast.admin.credentialsUpdated'));
+    setTimeout(() => location.reload(), 900);
+  } catch (e) {
+    errText.textContent = 'Ошибка сети';
+    errBox.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Сохранить логин и пароль';
+  }
+}
+
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
+}
+
+function gradeColorClass(value) {
+  if (value >= 85) return 'grade-5';
+  if (value >= 70) return 'grade-4';
+  if (value >= 50) return 'grade-3';
+  return 'grade-2';
+}
+
+// ─────────────────────────────────────────────
+// БИБЛИОТЕКА (только просмотр)
+// ─────────────────────────────────────────────
+let libraryBookSearchTimer = null;
+let libraryDetailPlaylistId = null;
+
+function debouncedLoadLibraryBooks() {
+  clearTimeout(libraryBookSearchTimer);
+  libraryBookSearchTimer = setTimeout(loadLibraryBooks, 300);
+}
+
+async function loadLibraryBooks() {
+  const grid = document.getElementById('libraryBooksGrid');
+  try {
+    const search = document.getElementById('libraryBookSearch').value.trim();
+    const url = '/api/library/books' + (search ? `?search=${encodeURIComponent(search)}` : '');
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось загрузить книги', 'error'); return; }
+    renderLibraryBooks(data);
+  } catch (e) {
+    grid.innerHTML = `<p class="text-muted"><span data-i18n="lib.loadLibraryFailed">Не удалось загрузить библиотеку</span></p>`;
+  }
+}
+
+function renderLibraryBooks(books) {
+  const grid = document.getElementById('libraryBooksGrid');
+  if (!books.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-state-icon">📚</div><h3><span data-i18n="lib.noBooksYet">Книг пока нет</span></h3>
+      <p><span data-i18n="s.teachersHaventSharedBooks">Учителя ещё не поделились с вами книгами</span></p>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = books.map(b => `
+    <div class="card">
+      <div class="card-body">
+        <div class="flex justify-between items-start gap-8">
+          <div class="flex items-start gap-12">
+            ${b.cover_path ? `<img class="book-cover" src="${b.cover_path}" alt="">` : `<div class="book-cover-placeholder">📚</div>`}
+            <div>
+              <div class="card-title">${escapeHtml(b.title)}</div>
+              ${b.author ? `<div class="text-muted text-sm mt-8">${escapeHtml(b.author)}</div>` : ''}
+            </div>
+          </div>
+          ${b.category ? `<span class="badge badge-teacher">${escapeHtml(b.category)}</span>` : ''}
+        </div>
+        ${b.description ? `<p class="text-sm text-muted mt-8">${escapeHtml(b.description)}</p>` : ''}
+      </div>
+      <div class="card-footer flex gap-8">
+        <a class="btn btn-primary btn-sm" href="#" onclick="event.preventDefault(); openDocumentReader('${b.file_path}', {title: '${escapeHtml(b.title).replace(/'/g, "\\'")}'})">📖 Читать</a>
+        <a class="btn btn-ghost btn-sm" href="${b.file_path}" download title="Скачать">📥</a>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadLibraryPlaylists() {
+  const grid = document.getElementById('libraryPlaylistsGrid');
+  try {
+    const res = await fetch('/api/library/playlists', { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось загрузить подборки', 'error'); return; }
+    renderLibraryPlaylists(data);
+  } catch (e) {
+    grid.innerHTML = `<p class="text-muted"><span data-i18n="lib.loadCollectionsFailed">Не удалось загрузить подборки</span></p>`;
+  }
+}
+
+function renderLibraryPlaylists(playlists) {
+  const grid = document.getElementById('libraryPlaylistsGrid');
+  if (!playlists.length) {
+    grid.innerHTML = `<p class="text-muted text-sm"><span data-i18n="s.noCollectionsYet">Подборок пока нет</span></p>`;
+    return;
+  }
+  grid.innerHTML = playlists.map(p => `
+    <div class="card card-clickable" onclick="openPlaylistDetail(${p.id})">
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(p.title)}</div>
+        ${p.description ? `<p class="text-sm text-muted mt-8">${escapeHtml(p.description)}</p>` : ''}
+        <div class="text-sm text-muted mt-8">${p.book_count} кн. · ${escapeHtml(p.owner_name || '')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function openPlaylistDetail(id) {
+  libraryDetailPlaylistId = id;
+  try {
+    const res = await fetch(`/api/library/playlists/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const playlist = await res.json();
+    if (!res.ok) { showToast(playlist.error || 'Не удалось открыть подборку', 'error'); return; }
+
+    document.getElementById('libraryPlaylistDetailTitle').textContent = playlist.title;
+    document.getElementById('libraryPlaylistDetailDesc').textContent = playlist.description || '';
+    const grid = document.getElementById('libraryPlaylistDetailGrid');
+    grid.innerHTML = !playlist.books.length
+      ? `<p class="text-muted text-sm"><span data-i18n="s.noAvailableBooksInCollection">В подборке нет доступных вам книг</span></p>`
+      : playlist.books.map(b => `
+        <div class="card">
+          <div class="card-body flex items-start gap-12">
+            ${b.cover_path ? `<img class="book-cover" src="${b.cover_path}" alt="">` : `<div class="book-cover-placeholder">📚</div>`}
+            <div>
+              <div class="card-title">${escapeHtml(b.title)}</div>
+              ${b.author ? `<div class="text-muted text-sm mt-8">${escapeHtml(b.author)}</div>` : ''}
+            </div>
+          </div>
+          <div class="card-footer flex gap-8">
+            <a class="btn btn-primary btn-sm" href="#" onclick="event.preventDefault(); openDocumentReader('${b.file_path}', {title: '${escapeHtml(b.title).replace(/'/g, "\\'")}'})">📖 Читать</a>
+        <a class="btn btn-ghost btn-sm" href="${b.file_path}" download title="Скачать">📥</a>
+          </div>
+        </div>
+      `).join('');
+
+    document.getElementById('libraryMain-view').classList.add('hidden');
+    document.getElementById('libraryBooksDetail-view').classList.remove('hidden');
+  } catch (e) {
+    showToast(i18nT('toast.admin.openPlaylistError'), 'error');
+  }
+}
+
+function closePlaylistDetail() {
+  libraryDetailPlaylistId = null;
+  document.getElementById('libraryBooksDetail-view').classList.add('hidden');
+  document.getElementById('libraryMain-view').classList.remove('hidden');
+  loadLibraryPlaylists();
+}
+
+function doLogout() {
+  sessionStorage.clear();
+  window.location.href = 'index.html';
+}
+
+// ─────────────────────────────────────────────
+// РАСПИСАНИЕ
+// ─────────────────────────────────────────────
+const DAY_NAMES_S = { 1: 'Понедельник', 2: 'Вторник', 3: 'Среда', 4: 'Четверг', 5: 'Пятница', 6: 'Суббота', 7: 'Воскресенье' };
+
+async function loadStudentSchedule() {
+  const el = document.getElementById('studentScheduleView');
+  try {
+    const items = await api('GET', '/api/schedule');
+    if (!items.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🗓️</div><h3><span data-i18n="sched.notFilled">Расписание пока не заполнено</span></h3><p><span data-i18n="s.operatorHasntAddedSchedule">Оператор ещё не добавил расписание для вашей группы</span></p></div>`;
+      return;
+    }
+    const byDay = {};
+    items.forEach(i => { (byDay[i.day_of_week] = byDay[i.day_of_week] || []).push(i); });
+    el.innerHTML = Object.keys(byDay).sort((a,b)=>a-b).map(day => `
+      <div class="card mb-16">
+        <h4 class="mb-12">${DAY_NAMES_S[day] || 'День ' + day}</h4>
+        ${byDay[day].map(i => `
+          <div class="flex items-center gap-12" style="padding:10px 0;border-top:1px solid var(--border)">
+            <div style="font-weight:700;color:var(--purple);min-width:90px">${i.start_time}–${i.end_time}</div>
+            <div style="flex:1">
+              <div style="font-weight:600">${i.subject_title || i.playlist_title || 'Занятие'}</div>
+              <div class="text-sm text-muted">${i.teacher_name ? i.teacher_name : ''}${i.room ? ' · ауд. ' + i.room : ''}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    `).join('');
+  } catch (e) { el.innerHTML = `<div class="empty-state"><p>Ошибка загрузки расписания</p></div>`; }
+}
+
+// ─────────────────────────────────────────────
+// ПЛЕЙЛИСТЫ
+// ─────────────────────────────────────────────
+async function loadPlaylists() {
+  try {
+    const playlists = await api('GET', '/api/playlists');
+    const container = document.getElementById('playlistsList');
+
+    if (!playlists.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">🎬</div>
+          <h3><span data-i18n="t.noPlaylistsYet">Плейлистов пока нет</span></h3>
+          <p><span data-i18n="s.teachersHaventAddedMaterials">Преподаватели ещё не добавили учебные материалы</span></p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = playlists.map((pl, i) => `
+      <div class="playlist-card animate-fadeInUp delay-${Math.min(i+1,4)}">
+        <div class="playlist-header" onclick="togglePlaylist(${pl.id})">
+          <div class="playlist-icon">🎬</div>
+          <div class="playlist-info">
+            <div class="playlist-title">${pl.title}</div>
+            <div class="playlist-meta">
+              ${pl.teacher_name ? '👤 ' + pl.teacher_name + ' · ' : ''}
+              ${pl.lessons.length} ${declLesson(pl.lessons.length)}
+              ${pl.description ? ' · ' + pl.description : ''}
+            </div>
+          </div>
+          <svg class="playlist-chevron" id="chev-${pl.id}"
+               width="18" height="18" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="playlist-lessons" id="lessons-${pl.id}">
+          ${pl.lessons.length === 0
+            ? `<div class="empty-state" style="padding:20px">
+                 <p><span data-i18n="s.noLessonsInPlaylist">В этом плейлисте пока нет уроков</span></p>
+               </div>`
+            : pl.lessons.map((l, li) => `
+              <div class="lesson-row ${l.locked ? 'lesson-row-locked' : ''}" onclick="openLesson(${l.id})">
+                <div class="lesson-num">${li + 1}</div>
+                <div class="lesson-info">
+                  <div class="lesson-title">${l.title}</div>
+                  <div class="lesson-badges">
+                    ${l.has_video_2d
+                      ? '<span class="media-badge media-badge-2d">📹 2D видео</span>' : ''}
+                    ${l.has_video_vr
+                      ? '<span class="media-badge media-badge-vr">🥽 VR видео</span>' : ''}
+                    ${l.has_material
+                      ? '<span class="media-badge media-badge-pdf">📄 Материал</span>' : ''}
+                    ${l.locked
+                      ? '<span class="journal-badge journal-badge-absence">🔒 Закрыт — срок истёк</span>'
+                      : (l.attendance === 'in_progress' ? `<span class="text-muted text-sm">⏱ до ${new Date(l.deadline).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>` : '')}
+                  </div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="var(--text3)" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </div>`).join('')
+          }
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    showToast(i18nT('toast.teacher.loadPlaylistsError'), 'error');
+  }
+}
+
+function togglePlaylist(id) {
+  const lessons = document.getElementById(`lessons-${id}`);
+  const chev    = document.getElementById(`chev-${id}`);
+  lessons.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+function declLesson(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return 'урок';
+  if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) return 'урока';
+  return 'уроков';
+}
+
+// ─────────────────────────────────────────────
+// ОТКРЫТЬ УРОК
+// ─────────────────────────────────────────────
+async function openLesson(lessonId) {
+  const modal = document.getElementById('lessonModal');
+  const body  = document.getElementById('lessonModalBody');
+  const title = document.getElementById('lessonModalTitle');
+
+  body.innerHTML = `
+    <div style="padding:40px;text-align:center">
+      <span class="spinner spinner-dark" style="width:32px;height:32px;
+            border-width:3px;margin:0 auto;display:block"></span>
+      <p class="text-muted mt-12"><span data-i18n="s.loadingLesson">Загружаем урок...</span></p>
+    </div>`;
+  openModal('lessonModal');
+
+  try {
+    const [lesson, hwData, progress] = await Promise.all([
+      api('GET', `/api/lessons/${lessonId}`),
+      api('GET', `/api/homework/student/${user.id}`),
+      api('GET', `/api/lessons/${lessonId}/progress`).catch(() => ({ is_completed: 0 }))
+    ]);
+
+    if (lesson.locked) {
+      const dl = lesson.deadline ? new Date(lesson.deadline).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+      body.innerHTML = `
+        <div style="padding:48px 24px;text-align:center">
+          <div style="font-size:40px;margin-bottom:12px">🔒</div>
+          <h3 style="margin-bottom:8px"><span data-i18n="s.lessonAccessClosed">Доступ к уроку закрыт</span></h3>
+          <p class="text-muted">Срок прохождения (${dl}) истёк, а урок не был пройден вовремя.<br>
+          Этот урок отмечен как пропуск в дневнике. Чтобы получить доступ снова, обратитесь к преподавателю.</p>
+        </div>`;
+      title.textContent = 'Урок закрыт';
+      return;
+    }
+
+    title.textContent = lesson.title;
+
+    // Если к уроку привязан тест — подтягиваем последний результат студента (если есть)
+    let myQuizResult = null;
+    if (lesson.quiz) {
+      try { myQuizResult = await api('GET', `/api/quizzes/${lesson.quiz.id}/my-result`); }
+      catch (e) { myQuizResult = null; }
+    }
+
+const aiButton = `
+<a href="ar-assistant.html?lesson_id=${lessonId}
+&lesson_title=${encodeURIComponent(lesson.title)}
+&lesson_desc=${encodeURIComponent(lesson.description || '')}"
+class="btn btn-primary btn-sm"
+style="margin-left:auto">
+🤖 Спросить Айгуль
+</a>`;
+
+    // Найдём Д/З по этому уроку если есть
+    const myHW = hwData.find ? hwData.find(h => h.lesson_id === lessonId) : null;
+
+    // Строим вкладки
+    const tabs = [];
+    if (lesson.video_2d_path) tabs.push({ id: 'tab2d', label: '📹 Видео',    type: '2d'  });
+    if (lesson.video_vr_path) tabs.push({ id: 'tabVR', label: '🥽 VR видео', type: 'vr'  });
+    if (lesson.material_path) tabs.push({ id: 'tabMat',label: '📄 Материал', type: 'mat' });
+    if (lesson.quiz)          tabs.push({ id: 'tabQuiz', label: '📝 Тест',   type: 'quiz'});
+    tabs.push({ id: 'tabHW', label: '📝 Д/З', type: 'hw' });
+
+    body.innerHTML = `
+      <div style="padding:20px 24px;display:flex;justify-content:flex-end">
+        ${aiButton}
+      </div>
+
+      <!-- Вкладки -->
+      <div class="tab-bar" style="padding:0 24px;margin-bottom:0">
+        ${tabs.map((t, i) => `
+          <button class="tab ${i === 0 ? 'active' : ''}"
+                  id="${t.id}-btn"
+                  onclick="switchLessonTab('${t.id}')">
+            ${t.label}
+          </button>`).join('')}
+      </div>
+
+      <!-- 2D Видео -->
+      ${lesson.video_2d_path ? `
+        <div class="tab-content ${tabs[0].type === '2d' ? 'active' : ''}"
+             id="tab2d">
+          <div class="lesson-video-wrap">
+            <video controls controlsList="nodownload"
+                   id="lessonVideo-${lessonId}"
+                   src="${lesson.video_2d_path}">
+              Ваш браузер не поддерживает видео.
+            </video>
+          </div>
+        </div>` : ''}
+
+      <!-- VR Видео -->
+      ${lesson.video_vr_path ? `
+        <div class="tab-content ${!lesson.video_2d_path && tabs[0].type === 'vr' ? 'active' : ''}"
+             id="tabVR">
+          <div class="vr-container">
+            <a-scene embedded>
+              <a-assets>
+                <video id="vr-vid-${lessonId}" crossorigin="anonymous" loop
+                       src="${lesson.video_vr_path}">
+                </video>
+              </a-assets>
+              <a-videosphere src="#vr-vid-${lessonId}" rotation="0 -90 0">
+              </a-videosphere>
+              <a-camera look-controls wasd-controls></a-camera>
+            </a-scene>
+            <div style="padding:10px 16px;background:rgba(0,0,0,0.7);
+                        color:#fff;font-size:0.82rem;text-align:center">
+              🖱 Тяните мышью для поворота · 📱 Наклоняйте устройство для VR режима
+            </div>
+            <div style="padding:10px 16px;text-align:center">
+              <button class="btn btn-ghost btn-sm"
+                      onclick="document.getElementById('vr-vid-${lessonId}').play()">
+                ▶ Запустить VR видео
+              </button>
+            </div>
+          </div>
+        </div>` : ''}
+
+      <!-- Материал -->
+      ${lesson.material_path ? `
+        <div class="tab-content ${tabs[0].type === 'mat' ? 'active' : ''}" id="tabMat">
+          <div style="padding:20px 24px">
+            <div class="flex items-center gap-12 mb-16">
+              <span style="font-size:2rem">📄</span>
+              <div>
+                <div class="fw-600"><span data-i18n="s.studyMaterial">Учебный материал</span></div>
+                <div class="text-sm text-muted">
+                  Читайте прямо здесь или скачайте файл
+                </div>
+              </div>
+              <a href="${lesson.material_path}"
+                 target="_blank" class="btn btn-primary btn-sm"
+                 style="margin-left:auto">
+                📥 Скачать файл
+              </a>
+            </div>
+            ${lesson.material_path.endsWith('.pdf')
+              ? `<iframe src="${lesson.material_path}"
+                         style="width:100%;height:500px;border:none;
+                                border-radius:var(--radius-lg)">
+                 </iframe>`
+              : lesson.material_path.endsWith('.docx')
+              ? `<div class="docx-preview-box" id="docxPreview-${lessonId}">
+                   <div class="empty-state">
+                     <div class="empty-state-icon">⏳</div>
+                     <p><span data-i18n="t.loadingDocument">Загружаю документ...</span></p>
+                   </div>
+                 </div>`
+              : `<div class="empty-state">
+                   <div class="empty-state-icon">📝</div>
+                   <p>Старый формат .doc не поддерживает просмотр в браузере —
+                      нажмите кнопку выше чтобы скачать</p>
+                 </div>`
+            }
+          </div>
+        </div>` : ''}
+
+      <!-- Тест урока -->
+      ${lesson.quiz ? `
+        <div class="tab-content ${tabs[0].type === 'quiz' ? 'active' : ''}" id="tabQuiz">
+          <div style="padding:20px 24px" id="quizTabBlock-${lessonId}">
+            ${quizTabInnerHtml(lesson, myQuizResult, progress)}
+          </div>
+        </div>` : ''}
+
+      <!-- Домашнее задание -->
+      <div class="tab-content ${tabs[0].type === 'hw' ? 'active' : ''}" id="tabHW">
+        <div style="padding:20px 24px">
+          <h4 style="margin-bottom:12px">📝 Домашнее задание</h4>
+
+          ${myHW && myHW.grade !== null ? `
+            <!-- Уже проверено и оценено -->
+            <div class="hw-status-graded mb-16">
+              <div class="grade-badge ${gradeColorClass(myHW.grade)}">${myHW.grade}</div>
+              <div>
+                <div class="fw-600"><span data-i18n="s.workReviewed">Работа проверена!</span></div>
+                <div class="text-sm text-muted">
+                  Оценка: ${myHW.grade} из 100 · ${myHW.ai_feedback || myHW.comment || 'без комментария'}
+                  ${myHW.graded_by === 'ai' ? ' <span class="text-xs">(предварительно проверено ИИ)</span>' : ''}
+                </div>
+              </div>
+            </div>` : myHW ? `
+            <!-- Сдано, ожидает проверки -->
+            <div class="hw-status-submitted mb-16">
+              ✓ Работа сдана ${new Date(myHW.submitted_at)
+                .toLocaleDateString('ru-RU')} — ожидает проверки
+            </div>` : ''}
+
+          <div class="hw-submit-block" id="hwSubmitBlock-${lessonId}">
+            ${lesson.video_2d_path && !progress.is_completed
+              ? hwLockedHtml()
+              : hwFormHtml(lessonId, myHW)}
+          </div>
+
+          ${lesson.description ? `
+            <div class="card mt-16">
+              <div class="card-header">
+                <h4 class="card-title">📋 Описание урока</h4>
+              </div>
+              <div class="card-body text-sm" style="color:var(--text2)">
+                ${lesson.description}
+              </div>
+            </div>` : ''}
+        </div>
+      </div>`;
+
+    // Если материал — .docx, рендерим его прямо в браузере (без скачивания)
+    if (lesson.material_path && lesson.material_path.endsWith('.docx')) {
+      renderDocxPreview(lesson.material_path, `docxPreview-${lessonId}`);
+    }
+
+    // Отслеживаем просмотр видео: пока не досмотрено до конца — форма сдачи ДЗ закрыта
+    if (lesson.video_2d_path) {
+      const vid = document.getElementById(`lessonVideo-${lessonId}`);
+      let lastSent = 0;
+      const sendProgress = async (force) => {
+        if (!vid.duration || isNaN(vid.duration)) return;
+        const now = Date.now();
+        if (!force && now - lastSent < 4000) return;
+        lastSent = now;
+        try {
+          const res = await api('POST', `/api/lessons/${lessonId}/progress`,
+            { watched_seconds: vid.currentTime, duration_seconds: vid.duration });
+          if (res.is_completed && !progress.is_completed) {
+            progress.is_completed = true;
+            const block = document.getElementById(`hwSubmitBlock-${lessonId}`);
+            if (block) block.innerHTML = hwFormHtml(lessonId, myHW);
+            if (lesson.quiz) {
+              const quizBlock = document.getElementById(`quizTabBlock-${lessonId}`);
+              if (quizBlock) quizBlock.innerHTML = quizTabInnerHtml(lesson, myQuizResult, progress);
+            }
+            showToast(i18nT('toast.student.videoWatchedUnlocked'));
+          }
+        } catch (e) { /* тихо игнорируем сетевые сбои трекинга */ }
+      };
+      vid.addEventListener('timeupdate', () => sendProgress(false));
+      vid.addEventListener('ended', () => sendProgress(true));
+      vid.addEventListener('pause', () => sendProgress(true));
+    }
+
+  } catch(e) {
+    showToast(i18nT('toast.student.loadLessonError'), 'error');
+    closeModal('lessonModal');
+  }
+}
+
+// Шаблон формы отправки Д/З (используется при открытии урока и при разблокировке после просмотра видео)
+function hwFormHtml(lessonId, myHW) {
+  return `
+    <h4>
+      ${myHW ? '🔄 Заменить файл' : '📤 Отправить домашнее задание'}
+    </h4>
+    <p class="text-sm text-muted mb-12">
+      Прикрепите файл в формате PDF или Word
+    </p>
+
+    <div class="file-drop-zone" id="hwDrop-${lessonId}"
+         ondragover="onDragOver(event,'hwDrop-${lessonId}')"
+         ondragleave="onDragLeave('hwDrop-${lessonId}')"
+         ondrop="onDrop(event,'hwFile-${lessonId}','hwDrop-${lessonId}')">
+      <input type="file" id="hwFile-${lessonId}"
+             accept=".pdf,.doc,.docx"
+             onchange="onHWFileSelected(${lessonId})">
+      <span class="drop-icon">📎</span>
+      <div class="drop-title"><span data-i18n="lib.dragFile">Перетащите файл или нажмите для выбора</span></div>
+      <div class="drop-hint">PDF, DOC, DOCX — до 50 МБ</div>
+    </div>
+
+    <div class="file-selected hidden" id="hwSel-${lessonId}">
+      <span>📎</span>
+      <span class="file-name" id="hwSelName-${lessonId}"></span>
+      <button class="btn-remove" onclick="clearHWFile(${lessonId})">✕</button>
+    </div>
+
+    <button class="btn btn-success w-full mt-12"
+            id="hwSubmitBtn-${lessonId}"
+            onclick="submitHomework(${lessonId})"
+            style="justify-content:center">
+      📤 Отправить работу
+    </button>`;
+}
+
+function hwLockedHtml() {
+  return `
+    <div class="empty-state">
+      <div class="empty-state-icon">🔒</div>
+      <h3><span data-i18n="s.finishVideo">Досмотрите видео до конца</span></h3>
+      <p>Отправка домашнего задания откроется автоматически, как только вы досмотрите видеоурок целиком</p>
+    </div>`;
+}
+
+function quizLockedHtml() {
+  return `
+    <div class="empty-state">
+      <div class="empty-state-icon">🔒</div>
+      <h3><span data-i18n="s.finishVideo">Досмотрите видео до конца</span></h3>
+      <p>Прохождение теста откроется автоматически, как только вы досмотрите видеоурок целиком</p>
+    </div>`;
+}
+
+// Содержимое вкладки "Тест": заблокировано, пока видео урока не досмотрено до конца
+function quizTabInnerHtml(lesson, myQuizResult, progress) {
+  const videoLocked = !!(lesson.video_2d_path && !progress.is_completed);
+  return `
+    <h4 style="margin-bottom:12px">📝 ${escapeHtml(lesson.quiz.title)}</h4>
+    <p class="text-sm text-muted mb-16">${lesson.quiz.question_count} вопрос(ов)</p>
+    ${myQuizResult && myQuizResult.has_result ? `
+      <div class="card mb-16" style="max-width:360px">
+        <div class="flex justify-between mb-8">
+          <span class="text-muted text-sm"><span data-i18n="s.lastResult">Последний результат</span></span>
+          <strong>${myQuizResult.score} из ${myQuizResult.total}</strong>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-muted text-sm"><span data-i18n="common.percent">Процент</span></span>
+          <strong>${Math.round(myQuizResult.score / myQuizResult.total * 100)}%</strong>
+        </div>
+      </div>
+    ` : ''}
+    ${videoLocked
+      ? quizLockedHtml()
+      : quizAttemptsBlockHtml(myQuizResult, lesson.quiz.id, myQuizResult && myQuizResult.has_result ? '🔄 Пройти снова' : '▶ Пройти тест')}
+  `;
+}
+
+// ─── Просмотр Word-документа (.docx) прямо в браузере, без скачивания ───
+async function renderDocxPreview(fileUrl, containerId) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  try {
+    const response = await fetch(fileUrl);
+    if (!response.ok) throw new Error('Не удалось загрузить файл');
+    const arrayBuffer = await response.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    box.innerHTML = `<div class="docx-content">${result.value}</div>`;
+  } catch (e) {
+    box.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">⚠️</div>
+        <p>Не удалось показать документ прямо на странице.
+           Скачайте его кнопкой выше.</p>
+      </div>`;
+  }
+}
+
+function switchLessonTab(tabId) {
+  document.querySelectorAll('#lessonModal .tab').forEach(t =>
+    t.classList.remove('active'));
+  document.querySelectorAll('#lessonModal .tab-content').forEach(c =>
+    c.classList.remove('active'));
+  document.getElementById(`${tabId}-btn`).classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+
+  // Запускаем VR видео при переключении на вкладку
+  if (tabId === 'tabVR') {
+    const vrVids = document.querySelectorAll('a-scene video');
+    vrVids.forEach(v => v.play().catch(() => {}));
+  }
+}
+
+function closeLesson() {
+  // Останавливаем все видео при закрытии
+  document.querySelectorAll('#lessonModal video').forEach(v => {
+    v.pause();
+    v.currentTime = 0;
+  });
+  closeModal('lessonModal');
+}
+
+// ─────────────────────────────────────────────
+// ДОМАШНЕЕ ЗАДАНИЕ
+// ─────────────────────────────────────────────
+function onHWFileSelected(lessonId) {
+  const file = document.getElementById(`hwFile-${lessonId}`).files[0];
+  if (!file) return;
+  document.getElementById(`hwDrop-${lessonId}`).style.display = 'none';
+  document.getElementById(`hwSel-${lessonId}`).classList.remove('hidden');
+  document.getElementById(`hwSelName-${lessonId}`).textContent = file.name;
+}
+
+function clearHWFile(lessonId) {
+  document.getElementById(`hwFile-${lessonId}`).value = '';
+  document.getElementById(`hwDrop-${lessonId}`).style.display = '';
+  document.getElementById(`hwSel-${lessonId}`).classList.add('hidden');
+}
+
+function onDragOver(e, zoneId) {
+  e.preventDefault();
+  document.getElementById(zoneId).classList.add('drag-over');
+}
+
+function onDragLeave(zoneId) {
+  document.getElementById(zoneId).classList.remove('drag-over');
+}
+
+function onDrop(e, inputId, zoneId) {
+  e.preventDefault();
+  onDragLeave(zoneId);
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const input = document.getElementById(inputId);
+  const dt    = new DataTransfer();
+  dt.items.add(file);
+  input.files = dt.files;
+  input.dispatchEvent(new Event('change'));
+}
+
+async function submitHomework(lessonId) {
+  const fileInput = document.getElementById(`hwFile-${lessonId}`);
+  const file      = fileInput.files[0];
+  if (!file) { showToast(i18nT('toast.student.selectFileToSend'), 'error'); return; }
+
+  const btn = document.getElementById(`hwSubmitBtn-${lessonId}`);
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner"></span> Отправляем...';
+
+  try {
+    const fd = new FormData();
+    fd.append('lesson_id', lessonId);
+    fd.append('file', file);
+
+    const res = await api('POST', '/api/homework', fd);
+    if (res.error) { showToast(res.error, 'error'); return; }
+
+    showToast(i18nT('toast.student.homeworkSubmitted'));
+    closeLesson();
+  } catch(e) {
+    showToast(i18nT('toast.student.submitError'), 'error');
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = '📤 Отправить работу';
+  }
+}
+
+// ─────────────────────────────────────────────
+// МОИ ОЦЕНКИ
+// ─────────────────────────────────────────────
+async function loadMyGrades() {
+  const content = document.getElementById('gradesContent');
+  content.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  try {
+    const grades = await api('GET', `/api/grades/student/${user.id}`);
+
+    if (!grades.length) {
+      content.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📊</div>
+          <h3><span data-i18n="t.noGradesYet">Оценок пока нет</span></h3>
+          <p><span data-i18n="s.gradesWillAppearHere">Здесь появятся оценки после проверки ваших работ</span></p>
+        </div>`;
+      return;
+    }
+
+    const avg = (grades.reduce((s, g) => s + g.value, 0) / grades.length).toFixed(1);
+    const avgColor = avg >= 85 ? 'var(--teal)'
+                   : avg >= 70 ? 'var(--blue)'
+                   : avg >= 50 ? 'var(--amber)'
+                   : 'var(--red)';
+
+    content.innerHTML = `
+      <div class="grades-summary-box">
+        <div>
+          <div class="avg-big" style="color:${avgColor}">${avg}</div>
+          <div class="text-sm text-muted mt-8"><span data-i18n="common.avgGrade">Средний балл</span></div>
+        </div>
+        <div style="height:60px;width:1px;background:var(--border)"></div>
+        <div>
+          <div class="avg-big" style="font-size:2rem">${grades.length}</div>
+          <div class="text-sm text-muted mt-8"><span data-i18n="t.totalGrades">Всего оценок</span></div>
+        </div>
+        <div style="height:60px;width:1px;background:var(--border)"></div>
+        <div>
+          <div class="avg-big" style="font-size:2rem;color:var(--teal)">
+            ${grades.filter(g => g.value >= 70).length}
+          </div>
+          <div class="text-sm text-muted mt-8">Оценок 70+</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><span data-i18n="s.allGrades">Все оценки</span></h3>
+        </div>
+        <div class="card-body">
+          ${grades.map(g => `
+            <div class="grade-row animate-fadeInUp">
+              <div class="grade-badge ${gradeColorClass(g.value)}">${g.value}</div>
+              <div style="flex:1">
+                <div class="fw-600 text-sm">
+                  ${g.lesson_title || (g.control_type === 'session' ? 'Итог за сессию' : g.control_type === 'checkpoint1' ? 'Рубежный контроль 1' : g.control_type === 'checkpoint2' ? 'Рубежный контроль 2' : 'Без привязки к уроку')}
+                </div>
+                <div class="text-xs text-muted mt-8">
+                  👤 ${g.teacher_name || '—'} ·
+                  📅 ${new Date(g.created_at).toLocaleDateString('ru-RU',{
+                    day:'2-digit', month:'short', year:'numeric'
+                  })}
+                  ${g.graded_by === 'ai' ? ' · 🤖 проверено ИИ' : ''}
+                  ${g.graded_by === 'auto' ? ' · ⚙️ автоматически' : ''}
+                  ${g.comment ? ' · 💬 ' + g.comment : ''}
+                </div>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  } catch(e) {
+    showToast(i18nT('toast.teacher.loadGradesError'), 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+// ТЕСТЫ — СПИСОК
+// ─────────────────────────────────────────────
+async function loadQuizzes() {
+  const list = document.getElementById('quizzesList');
+  list.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  try {
+    const quizzes = await api('GET', '/api/quizzes');
+    if (!quizzes.length) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📝</div>
+          <h3><span data-i18n="t.noTestsYet">Тестов пока нет</span></h3>
+          <p><span data-i18n="s.teachersHaventCreatedTests">Преподаватели ещё не создали тесты</span></p>
+        </div>`;
+      return;
+    }
+
+    // Проверяем результаты каждого теста
+    const results = await Promise.all(
+      quizzes.map(q => api('GET', `/api/quizzes/${q.id}/my-result`)
+        .catch(() => null))
+    );
+
+    list.innerHTML = quizzes.map((q, i) => {
+      const result   = results[i];
+      const hasResult = result && result.has_result;
+      const pct    = hasResult
+        ? Math.round(result.score / result.total * 100) : null;
+      const pctColor = pct === null   ? ''
+                     : pct >= 80      ? 'var(--teal)'
+                     : pct >= 50      ? 'var(--amber)'
+                     : 'var(--red)';
+      const maxAttempts  = result ? result.max_attempts : null;
+      const attemptsUsed = result ? (result.attempts_used || 0) : 0;
+      const attemptsLeft = result ? result.attempts_left : null;
+      const limitReached = maxAttempts && attemptsLeft <= 0;
+      return `
+        <div class="card mb-12 animate-fadeInUp delay-${Math.min(i+1,4)}">
+          <div class="card-header">
+            <span style="font-size:1.4rem">📝</span>
+            <div class="card-title">${q.title}</div>
+            ${hasResult ? `
+              <span style="color:${pctColor};font-weight:700;font-size:1rem">
+                ${pct}%
+              </span>` : ''}
+          </div>
+          <div class="flex items-center gap-12">
+            <div class="text-sm text-muted" style="flex:1">
+              ${q.question_count} вопрос(ов)
+              ${hasResult
+                ? ` · Пройден: ${result.score}/${result.total}
+                    · ${new Date(result.completed_at).toLocaleDateString('ru-RU')}`
+                : ' · Ещё не пройден'}
+              ${maxAttempts ? ` · Попыток: ${attemptsUsed}/${maxAttempts}` : ''}
+            </div>
+            ${limitReached
+              ? `<button class="btn btn-ghost btn-sm" disabled title="Лимит попыток исчерпан">🚫 Лимит исчерпан</button>`
+              : `<button class="btn btn-primary btn-sm" onclick="startQuiz(${q.id})">
+                  ${hasResult ? '🔄 Пройти снова' : '▶ Начать тест'}
+                </button>`}
+          </div>
+          ${hasResult ? `
+            <div class="progress-bar mt-12">
+              <div class="progress-bar-fill ${pct>=70?'green':pct>=50?'amber':'red'}"
+                   style="width:${pct}%"></div>
+            </div>` : ''}
+        </div>`;
+    }).join('');
+  } catch(e) {
+    showToast(i18nT('toast.teacher.loadTestsError'), 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+// ТЕСТ — ПРОХОЖДЕНИЕ
+// ─────────────────────────────────────────────
+// Рисует блок "осталось попыток" и кнопку начать/пересдать тест —
+// кнопка блокируется, если преподаватель ограничил число попыток и лимит исчерпан
+function quizAttemptsBlockHtml(myQuizResult, quizId, startLabel) {
+  const maxAttempts   = myQuizResult ? myQuizResult.max_attempts : null;
+  const attemptsUsed  = myQuizResult ? (myQuizResult.attempts_used || 0) : 0;
+  const attemptsLeft  = myQuizResult ? myQuizResult.attempts_left : null;
+
+  let attemptsInfo = '';
+  if (maxAttempts) {
+    attemptsInfo = `<div class="text-sm text-muted mb-8">Попыток использовано: ${attemptsUsed} из ${maxAttempts}</div>`;
+  }
+
+  if (maxAttempts && attemptsLeft <= 0) {
+    return `
+      ${attemptsInfo}
+      <button class="btn btn-ghost btn-sm" disabled title="Лимит попыток исчерпан">🚫 Лимит попыток исчерпан</button>
+    `;
+  }
+
+  return `
+    ${attemptsInfo}
+    <button class="btn btn-primary btn-sm" onclick="startQuiz(${quizId})">${startLabel}</button>
+  `;
+}
+
+async function startQuiz(quizId) {
+  try {
+    quizData = await api('GET', `/api/quizzes/${quizId}`);
+    if (quizData.error) {
+      showToast(quizData.error, 'error');
+      return;
+    }
+    quizAnswers = {};
+    currentQIdx = 0;
+
+    document.getElementById('quizTitleLabel').textContent = quizData.title;
+    document.getElementById('quizScreen').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    renderQuizQuestion();
+  } catch(e) {
+    showToast(i18nT('toast.student.loadTestError'), 'error');
+  }
+}
+
+function renderQuizQuestion() {
+  const q      = quizData.questions[currentQIdx];
+  const total  = quizData.questions.length;
+  const pct    = Math.round(((currentQIdx + 1) / total) * 100);
+
+  document.getElementById('quizProgressLabel').textContent =
+    `Вопрос ${currentQIdx + 1} из ${total}`;
+  document.getElementById('quizProgressFill').style.width = pct + '%';
+  document.getElementById('quizStepInfo').textContent =
+    `${currentQIdx + 1} / ${total}`;
+
+  // Кнопки навигации
+  document.getElementById('quizPrevBtn').style.visibility =
+    currentQIdx === 0 ? 'hidden' : 'visible';
+  document.getElementById('quizNextBtn').textContent =
+    currentQIdx === total - 1 ? 'Завершить ✓' : 'Далее →';
+
+  const body = document.getElementById('quizScreenBody');
+  const selected = quizAnswers[q.id] || [];
+
+  body.innerHTML = `
+    <div class="animate-fadeInUp">
+      ${q.question_image_path ? `
+        <img src="${q.question_image_path}"
+             class="quiz-question-img" alt="Изображение вопроса">` : ''}
+
+      <h3 style="margin-bottom:8px;font-size:1.15rem">
+        ${q.question_text || 'Вопрос без текста'}
+      </h3>
+      <p class="text-sm text-muted mb-20">
+        ${q.multiple_correct
+          ? '☑ Выберите все правильные ответы'
+          : '○ Выберите один правильный ответ'}
+      </p>
+
+      <div id="optionsList">
+        ${q.options.map(o => {
+          const isSelected = selected.includes(o.id);
+          return `
+            <div class="quiz-option ${isSelected ? 'selected' : ''}"
+                 id="opt-${o.id}"
+                 onclick="toggleAnswer(${q.id}, ${o.id},
+                          ${q.multiple_correct ? 1 : 0})">
+              <div class="quiz-option-marker">
+                ${isSelected ? '✓' : ''}
+              </div>
+              ${o.option_image_path ? `
+                <img src="${o.option_image_path}"
+                     class="quiz-option-img" alt="">` : ''}
+              <span style="flex:1">${o.option_text || ''}</span>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+function toggleAnswer(questionId, optionId, multiple) {
+  if (!quizAnswers[questionId]) quizAnswers[questionId] = [];
+
+  if (multiple) {
+    // Несколько ответов — переключаем
+    const idx = quizAnswers[questionId].indexOf(optionId);
+    if (idx === -1) {
+      quizAnswers[questionId].push(optionId);
+    } else {
+      quizAnswers[questionId].splice(idx, 1);
+    }
+  } else {
+    // Один ответ — заменяем
+    quizAnswers[questionId] = [optionId];
+  }
+
+  // Обновляем визуал без перерисовки всего вопроса
+  const q = quizData.questions[currentQIdx];
+  q.options.forEach(o => {
+    const el     = document.getElementById(`opt-${o.id}`);
+    const marker = el.querySelector('.quiz-option-marker');
+    const isSel  = quizAnswers[questionId].includes(o.id);
+    el.classList.toggle('selected', isSel);
+    marker.textContent = isSel ? '✓' : '';
+  });
+}
+
+function quizPrev() {
+  if (currentQIdx > 0) {
+    currentQIdx--;
+    renderQuizQuestion();
+  }
+}
+
+async function quizNext() {
+  const total = quizData.questions.length;
+
+  if (currentQIdx < total - 1) {
+    currentQIdx++;
+    renderQuizQuestion();
+  } else {
+    // Завершить тест
+    await submitQuiz();
+  }
+}
+
+async function submitQuiz() {
+  const answers = quizData.questions.map(q => ({
+    question_id:         q.id,
+    selected_option_ids: quizAnswers[q.id] || []
+  }));
+
+  const nextBtn = document.getElementById('quizNextBtn');
+  nextBtn.disabled  = true;
+  nextBtn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const result = await api(
+      'POST',
+      `/api/quizzes/${quizData.id}/submit`,
+      { answers }
+    );
+    if (result.error) {
+      showToast(result.error, 'error');
+      return;
+    }
+    showQuizResult(result);
+  } catch(e) {
+    showToast(i18nT('toast.student.submitTestError'), 'error');
+  } finally {
+    nextBtn.disabled  = false;
+    nextBtn.innerHTML = 'Завершить ✓';
+  }
+}
+
+function showQuizResult(result) {
+  const pct      = result.percent;
+  const pctColor = pct >= 80 ? 'var(--teal)'
+                 : pct >= 50 ? 'var(--amber)'
+                 : 'var(--red)';
+  const emoji    = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '📚';
+  const msg      = pct >= 80 ? 'Отличный результат!'
+                 : pct >= 50 ? 'Хороший результат!'
+                 : 'Стоит повторить материал';
+
+  const body = document.getElementById('quizScreenBody');
+  document.getElementById('quizScreen').querySelector('.quiz-screen-footer')
+    .classList.add('hidden');
+
+  body.innerHTML = `
+    <div class="quiz-result-screen animate-fadeInUp">
+      <div style="font-size:4rem">${emoji}</div>
+      <div class="quiz-result-score" style="color:${pctColor}">
+        ${pct}%
+      </div>
+      <div class="quiz-result-label">${msg}</div>
+
+      <div style="max-width:280px;margin:0 auto 24px">
+        <div class="progress-bar" style="height:12px;border-radius:99px">
+          <div class="progress-bar-fill ${pct>=70?'green':pct>=50?'amber':'red'}"
+               style="width:${pct}%;transition:width 1s ease"></div>
+        </div>
+      </div>
+
+      <div class="card" style="max-width:320px;margin:0 auto 24px;text-align:left">
+        <div class="flex justify-between mb-8">
+          <span class="text-muted text-sm"><span data-i18n="s.correctAnswers">Правильных ответов</span></span>
+          <strong>${result.score} из ${result.total}</strong>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-muted text-sm"><span data-i18n="common.result">Результат</span></span>
+          <strong style="color:${pctColor}">${pct}%</strong>
+        </div>
+      </div>
+
+      <div class="flex gap-12" style="justify-content:center">
+        <button class="btn btn-ghost" onclick="exitQuiz()">
+          Закрыть
+        </button>
+        <button class="btn btn-primary" onclick="startQuiz(${quizData.id})">
+          🔄 Пройти снова
+        </button>
+      </div>
+    </div>`;
+
+  // Анимируем прогресс-бар
+  setTimeout(() => {
+    const fill = body.querySelector('.progress-bar-fill');
+    if (fill) fill.style.width = pct + '%';
+  }, 100);
+}
+
+function exitQuiz() {
+  document.getElementById('quizScreen').classList.add('hidden');
+  document.getElementById('quizScreen')
+    .querySelector('.quiz-screen-footer').classList.remove('hidden');
+  document.body.style.overflow = '';
+  quizData    = null;
+  quizAnswers = {};
+  currentQIdx = 0;
+  loadQuizzes();
+}
+
+// ─────────────────────────────────────────────
+// МОДАЛКИ — УТИЛИТЫ
+// ─────────────────────────────────────────────
+function openModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function closeOnOverlay(e, id) {
+  if (e.target === document.getElementById(id)) {
+    if (id === 'lessonModal') closeLesson();
+    else closeModal(id);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (!document.getElementById('lessonModal').classList.contains('hidden')) {
+      closeLesson();
+    }
+  }
+});
+
+// ─────────────────────────────────────────────
+// ВИДЕОЗВОНКИ (сторона студента)
+// ─────────────────────────────────────────────
+// У студента ровно одно RTCPeerConnection — с учителем ("звезда", см.
+// сопроводительный документ). Демонстрацию экрана других студентов
+// (scope='all') студент получает как дополнительный видеотрек через ЭТО ЖЕ
+// соединение — учитель ретранслирует его со своей стороны, сам сервер
+// медиапотоки не трогает.
+const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+let callActiveRoomInfo = null; // { id, title, teacher_id, teacher_name, group_ids }
+let callWS = null;
+let callRoomId = null;
+let callTeacherId = null;
+let callPC = null;
+let callLocalStream = null;
+let callScreenStream = null;
+let callIsSharingScreen = false;
+let callHandRaised = false;
+let callMicEnabled = true;
+let callCamEnabled = true;
+let callMicForceLocked = false;
+let callCamForceLocked = false;
+let callVideoTrackCount = 0;
+let callPendingScreenLabels = []; // очередь { byUserId, byName } из screen-share-started, ждущих трека
+
+async function checkActiveCall() {
+  if (callRoomId) return; // уже в звонке — баннер не нужен
+  try {
+    const data = await api('GET', '/api/video-rooms/active');
+    callActiveRoomInfo = data.room;
+    const banner = document.getElementById('callBanner');
+    if (data.room) {
+      document.getElementById('callBannerText').textContent =
+        `${data.room.teacher_name || 'Преподаватель'} начал видеозвонок` + (data.room.title ? `: ${data.room.title}` : '');
+      banner.classList.remove('hidden');
+    } else {
+      banner.classList.add('hidden');
+    }
+  } catch (_) {}
+}
+
+function callConnectWS() {
+  return new Promise((resolve, reject) => {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    callWS = new WebSocket(`${proto}://${location.host}/ws/video`);
+    callWS.onopen = () => callWS.send(JSON.stringify({ type: 'auth', token }));
+    callWS.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === 'auth-ok') return resolve();
+      if (msg.type === 'error' && !callRoomId) return reject(new Error(msg.error));
+      handleCallMessage(msg);
+    };
+    callWS.onclose = () => { if (callRoomId) showToast(i18nT('toast.teacher.callConnectionLost'), 'error'); };
+    callWS.onerror = () => reject(new Error('Не удалось подключиться к серверу звонков'));
+  });
+}
+
+async function joinVideoCall() {
+  if (!callActiveRoomInfo) return;
+  try {
+    callLocalStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  } catch (e) {
+    return showToast(i18nT('toast.teacher.noCameraMicAccess'), 'error');
+  }
+  try {
+    await callConnectWS();
+  } catch (e) {
+    showToast(e.message, 'error');
+    callLocalStream.getTracks().forEach(t => t.stop());
+    return;
+  }
+
+  callWS.send(JSON.stringify({ type: 'join-room', room_id: callActiveRoomInfo.id }));
+  document.getElementById('callBanner').classList.add('hidden');
+  document.getElementById('callOverlay').classList.remove('hidden');
+  document.getElementById('callHandFab').classList.remove('hidden');
+  document.getElementById('callTopbarTitle').textContent = callActiveRoomInfo.title || 'Видеозвонок';
+
+  renderOwnCallTile();
+}
+
+function handleCallMessage(msg) {
+  switch (msg.type) {
+    case 'room-state':
+      callRoomId = msg.room_id;
+      callTeacherId = msg.teacher_id;
+      createTeacherPeerConnection();
+      break;
+
+    case 'offer':
+      if (!callPC) return;
+      handleCallOffer(msg.payload, msg.from_user_id);
+      break;
+
+    case 'answer':
+      if (!callPC) return;
+      callPC.setRemoteDescription(new RTCSessionDescription(msg.payload)).catch(() => {});
+      break;
+
+    case 'ice-candidate':
+      if (callPC && msg.payload) callPC.addIceCandidate(new RTCIceCandidate(msg.payload)).catch(() => {});
+      break;
+
+    case 'room-ended':
+      callTeardown();
+      showToast(i18nT('toast.student.callEndedByTeacher'), 'info');
+      checkActiveCall();
+      break;
+
+    case 'hand-raised':
+    case 'hand-lowered':
+      if (msg.user_id === user.id) {
+        callHandRaised = msg.type === 'hand-raised';
+        document.getElementById('callHandFab').classList.toggle('active', callHandRaised);
+      }
+      break;
+
+    case 'screen-share-started':
+      if (msg.user_id !== user.id) {
+        callPendingScreenLabels.push({ byUserId: msg.user_id, scope: msg.scope });
+        if (msg.scope === 'all') showToast(i18nT('toast.student.someoneSharingScreen'), 'info');
+      }
+      break;
+
+    case 'force-mute':
+      applyForceMute(msg.kind, msg.enabled);
+      break;
+
+    case 'error':
+      showToast(msg.error, 'error');
+      break;
+  }
+}
+
+function createTeacherPeerConnection() {
+  callPC = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  callLocalStream.getTracks().forEach(t => callPC.addTrack(t, callLocalStream));
+
+  callPC.onicecandidate = (e) => {
+    if (e.candidate) callWS.send(JSON.stringify({ type: 'ice-candidate', room_id: callRoomId, to_user_id: callTeacherId, payload: e.candidate }));
+  };
+
+  callPC.ontrack = (e) => {
+    callVideoTrackCount += 1;
+    if (callVideoTrackCount === 1) {
+      renderTeacherCallTile(e.streams[0]);
+    } else {
+      const label = callPendingScreenLabels.shift();
+      renderScreenShareTile(e.streams[0], label);
+    }
+  };
+
+  callPC.onnegotiationneeded = async () => {
+    // Срабатывает, когда СТУДЕНТ добавляет трек в уже открытое соединение
+    // (например, включил демонстрацию своего экрана) — переговоры инициирует он.
+    try {
+      const offer = await callPC.createOffer();
+      await callPC.setLocalDescription(offer);
+      callWS.send(JSON.stringify({ type: 'offer', room_id: callRoomId, to_user_id: callTeacherId, payload: callPC.localDescription }));
+    } catch (_) {}
+  };
+}
+
+async function handleCallOffer(payload, fromUserId) {
+  // Первичный offer от учителя, либо повторный (ретрансляция чужой демонстрации
+  // экрана добавляет трек в наше соединение и требует пере-согласования) —
+  // обрабатываются одинаково.
+  await callPC.setRemoteDescription(new RTCSessionDescription(payload));
+  const answer = await callPC.createAnswer();
+  await callPC.setLocalDescription(answer);
+  callWS.send(JSON.stringify({ type: 'answer', room_id: callRoomId, to_user_id: fromUserId, payload: callPC.localDescription }));
+}
+
+function renderOwnCallTile() {
+  const grid = document.getElementById('callGrid');
+  const box = document.createElement('div');
+  box.className = 'call-video-box';
+  box.id = 'callTile-self';
+  box.innerHTML = `<video autoplay playsinline muted id="callSelfVideo"></video><div class="call-video-label"><span data-i18n="s.you">Вы</span></div>`;
+  grid.appendChild(box);
+  document.getElementById('callSelfVideo').srcObject = callLocalStream;
+}
+
+function renderTeacherCallTile(stream) {
+  const grid = document.getElementById('callGrid');
+  let box = document.getElementById('callTile-teacher');
+  if (!box) {
+    box = document.createElement('div');
+    box.className = 'call-video-box';
+    box.id = 'callTile-teacher';
+    box.innerHTML = `<video autoplay playsinline id="callTeacherVideo"></video><div class="call-video-label">${escapeHtml(callActiveRoomInfo?.teacher_name || 'Преподаватель')}</div>`;
+    grid.insertBefore(box, grid.firstChild);
+  }
+  document.getElementById('callTeacherVideo').srcObject = stream;
+}
+
+function renderScreenShareTile(stream, label) {
+  const grid = document.getElementById('callGrid');
+  const id = `callTile-screen-${Date.now()}`;
+  const box = document.createElement('div');
+  box.className = 'call-video-box';
+  box.id = id;
+  box.innerHTML = `<video autoplay playsinline></video><div class="call-video-label">🖥️ Демонстрация экрана</div>`;
+  grid.appendChild(box);
+  box.querySelector('video').srcObject = stream;
+  stream.getVideoTracks()[0].onended = () => box.remove();
+}
+
+function applyForceMute(kind, enabled) {
+  if (kind === 'mic') {
+    callMicForceLocked = !enabled;
+    callMicEnabled = enabled;
+    if (callLocalStream) callLocalStream.getAudioTracks().forEach(t => t.enabled = enabled);
+    updateMicButton();
+    if (!enabled) showToast(i18nT('toast.student.teacherMutedYou'), 'info');
+  } else {
+    callCamForceLocked = !enabled;
+    callCamEnabled = enabled;
+    if (callLocalStream) callLocalStream.getVideoTracks().forEach(t => t.enabled = enabled);
+    updateCamButton();
+    if (!enabled) showToast(i18nT('toast.student.teacherDisabledYourCamera'), 'info');
+  }
+}
+
+function updateMicButton() {
+  const btn = document.getElementById('callMicBtn');
+  btn.innerHTML = callMicEnabled
+    ? '<span class="call-btn-icon">🎙️</span><span class="call-btn-label"> Микрофон</span>'
+    : '<span class="call-btn-icon">🔇</span><span class="call-btn-label"> Микрофон выкл.</span>';
+  btn.classList.toggle('muted-indicator', !callMicEnabled);
+}
+function updateCamButton() {
+  const btn = document.getElementById('callCamBtn');
+  btn.innerHTML = callCamEnabled
+    ? '<span class="call-btn-icon">🎥</span><span class="call-btn-label"> Камера</span>'
+    : '<span class="call-btn-icon">📷</span><span class="call-btn-label"> Камера выкл.</span>';
+  btn.classList.toggle('muted-indicator', !callCamEnabled);
+}
+
+function toggleSelfMic() {
+  if (callMicForceLocked && !callMicEnabled) return showToast(i18nT('toast.student.micDisabledByTeacher'), 'info');
+  callMicEnabled = !callMicEnabled;
+  callLocalStream.getAudioTracks().forEach(t => t.enabled = callMicEnabled);
+  updateMicButton();
+}
+function toggleSelfCam() {
+  if (callCamForceLocked && !callCamEnabled) return showToast(i18nT('toast.student.cameraDisabledByTeacher'), 'info');
+  callCamEnabled = !callCamEnabled;
+  callLocalStream.getVideoTracks().forEach(t => t.enabled = callCamEnabled);
+  updateCamButton();
+}
+
+function toggleRaiseHand() {
+  if (!callRoomId) return;
+  callWS.send(JSON.stringify({ type: callHandRaised ? 'lower-hand' : 'raise-hand', room_id: callRoomId }));
+}
+
+function openScreenShareMenu() {
+  if (callIsSharingScreen) return stopOwnScreenShare();
+  document.getElementById('callScreenScopeModal').classList.remove('hidden');
+}
+
+async function startOwnScreenShare(scope) {
+  closeModal('callScreenScopeModal');
+  try {
+    callScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+  } catch (e) { return; }
+  callIsSharingScreen = true;
+  const btn = document.getElementById('callScreenShareBtn');
+  btn.innerHTML = '<span class="call-btn-icon">🖥️</span><span class="call-btn-label"> Остановить показ</span>';
+  btn.classList.add('active-toggle');
+  const track = callScreenStream.getVideoTracks()[0];
+  track.onended = () => stopOwnScreenShare();
+  callPC.addTrack(track, callScreenStream);
+  callWS.send(JSON.stringify({ type: 'screen-share-start', room_id: callRoomId, scope }));
+}
+
+function stopOwnScreenShare() {
+  if (!callIsSharingScreen) return;
+  const senders = callPC.getSenders().filter(s => s.track && callScreenStream.getVideoTracks().includes(s.track));
+  senders.forEach(s => { try { callPC.removeTrack(s); } catch (_) {} });
+  callScreenStream.getTracks().forEach(t => t.stop());
+  callScreenStream = null;
+  callIsSharingScreen = false;
+  const btn = document.getElementById('callScreenShareBtn');
+  btn.innerHTML = '<span class="call-btn-icon">🖥️</span><span class="call-btn-label"> <span data-i18n="s.demoScreen">Демонстрация экрана</span></span>';
+  btn.classList.remove('active-toggle');
+  if (callWS && callRoomId) callWS.send(JSON.stringify({ type: 'screen-share-stop', room_id: callRoomId }));
+}
+
+function leaveVideoCall() {
+  if (callWS && callRoomId) callWS.send(JSON.stringify({ type: 'leave-room', room_id: callRoomId }));
+  callTeardown();
+  setTimeout(checkActiveCall, 500);
+}
+
+function callTeardown() {
+  if (callPC) { callPC.close(); callPC = null; }
+  if (callLocalStream) callLocalStream.getTracks().forEach(t => t.stop());
+  if (callScreenStream) callScreenStream.getTracks().forEach(t => t.stop());
+  if (callWS) { callWS.onclose = null; callWS.close(); callWS = null; }
+  callLocalStream = null; callScreenStream = null; callIsSharingScreen = false;
+  callRoomId = null; callTeacherId = null; callHandRaised = false;
+  callMicEnabled = true; callCamEnabled = true; callMicForceLocked = false; callCamForceLocked = false;
+  callVideoTrackCount = 0; callPendingScreenLabels = [];
+  document.getElementById('callOverlay').classList.add('hidden');
+  document.getElementById('callGrid').innerHTML = '';
+  document.getElementById('callHandFab').classList.add('hidden');
+  document.getElementById('callHandFab').classList.remove('active');
+}
+
+checkActiveCall();
+setInterval(checkActiveCall, 15000);
+
+// ─────────────────────────────────────────────
+// СТАРТ
+// ─────────────────────────────────────────────
+loadPlaylists();
+</script>
+</body>
+</html>

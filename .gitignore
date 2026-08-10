@@ -1,0 +1,24 @@
+# Зависимости
+node_modules/
+
+# Секреты и локальная конфигурация — НИКОГДА не коммитить
+.env
+.env.local
+.jwt-secret
+
+# База данных и загруженные пользователями файлы (не должны попадать в git)
+*.db
+*.db-shm
+*.db-wal
+/data/
+/uploads/
+
+# Логи
+*.log
+npm-debug.log*
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

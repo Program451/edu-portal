@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0f">
+  <title>ЕдуПортал — AI Помощница Айгуль</title>
+  <script src="vendor/aframe.min.js"></script>
+  <script src="talkingRobotFace.js"></script>
+  <!-- ВАЖНО: A-Frame теперь раздаётся С НАШЕГО сервера (public/vendor/aframe.min.js),
+       а не с внешнего CDN aframe.io. Раньше скрипт грузился с
+       https://aframe.io/releases/1.4.0/aframe.min.js — если этот домен у
+       пользователя заблокирован/недоступен (частая причина в некоторых сетях/
+       регионах или за корпоративным фаерволом), <script> просто не загружался,
+       AFRAME оставался undefined, теги <a-scene>/<a-entity> не оживали как
+       кастомные элементы — и человек видел ТОЛЬКО картинку с камеры (наш
+       обычный <video>, он от A-Frame не зависит) БЕЗ робота поверх неё.
+       Это и есть самая вероятная причина "камера видна, робота нет". -->
+  <!-- AR.js (маркерная библиотека, требовавшая печатный маркер HIRO) убрана.
+       Теперь это "safe AR": свой видеопоток с камеры (getUserMedia) как фон +
+       3D-робот, закреплённый прямо перед виртуальной камерой A-Frame. Ничего
+       печатать не нужно, робот никогда не "теряется", и — самое важное для
+       требования "телефон и ноутбук" — getUserMedia одинаково работает и с
+       тыловой камерой телефона, и с фронтальной веб-камерой ноутбука, тогда
+       как AR.js/WebXR-marker-tracking на ноутбуках почти всегда не работает. -->
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      overscroll-behavior: none;
+      /* position: fixed + width/height 100% полностью запирает страницу от
+         скролла. Это нужно потому, что AR.js после инициализации камеры
+         (через 1-2 сек, когда видеопоток реально стартует) пересчитывает
+         размеры своих внутренних <video>/<canvas> элементов — на части
+         Android-браузеров (в т.ч. на Samsung Internet/A51) это иногда
+         вызывает микро-скролл страницы на пару пикселей, из-за чего
+         "фиксированный" чат/шапка визуально съезжают вниз за пределы
+         экрана. Если страницу физически нельзя скроллить, съехать нечему. */
+      position: fixed;
+      width:  100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow:    hidden;
+      background:  #0a0a0f;
+      /* calc(var(--vh, 1vh) * 100) — надёжный фикс высоты экрана на iOS Safari,
+         где 100vh включает область под адресной строкой. --vh проставляется в JS. */
+      height:      calc(var(--vh, 1vh) * 100);
+      height:      100dvh;
+      width:       100vw;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* Поля ввода должны оставаться выделяемыми/кликабельными */
+    input, textarea {
+      touch-action: manipulation;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+
+    /* ─── РЕЖИМ ВЫБОРА ─── */
+    #modeSelect {
+      position:        fixed;
+      inset:           0;
+      background:      linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      display:         flex;
+      flex-direction:  column;
+      align-items:     center;
+      justify-content: center;
+      z-index:         1000;
+      gap:             24px;
+      padding:         32px;
+    }
+
+    /* ─── ЭКРАН ВЫБОРА РОБОТА (4 персонажа) ─── */
+    #robotSelect {
+      position:        fixed;
+      inset:           0;
+      background:      linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      display:         flex;
+      flex-direction:  column;
+      align-items:     center;
+      justify-content: center;
+      z-index:         1001;
+      gap:             18px;
+      padding:         28px 20px;
+      overflow-y:      auto;
+    }
+    .robot-pick-title { text-align: center; color: #fff; }
+    .robot-pick-title h1 { font-size: 1.5rem; margin-bottom: 4px; }
+    .robot-pick-title p  { color: rgba(255,255,255,0.65); font-size: 0.92rem; }
+    .robot-grid {
+      display:               grid;
+      grid-template-columns: repeat(2, minmax(140px, 168px));
+      gap:                   14px;
+      width: 100%;
+      max-width: 380px;
+    }
+    .robot-card {
+      background:      rgba(255,255,255,0.06);
+      border:           2px solid rgba(255,255,255,0.12);
+      border-radius:    18px;
+      padding:          14px 10px 12px;
+      display:          flex;
+      flex-direction:   column;
+      align-items:      center;
+      gap:              8px;
+      cursor:           pointer;
+      transition:       transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+    .robot-card:active { transform: scale(0.96); }
+    .robot-card.selected {
+      border-color: #a78bfa;
+      background:   rgba(167,139,250,0.18);
+      box-shadow:   0 0 24px rgba(167,139,250,0.35);
+    }
+    .robot-card-avatar {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.08);
+    }
+    .robot-card-avatar svg { width: 80%; height: 80%; }
+    .robot-card-name { color: #fff; font-weight: 700; font-size: 0.95rem; }
+    .robot-card-tag  { color: rgba(255,255,255,0.6); font-size: 0.74rem; text-align: center; line-height: 1.3; }
+    .robot-pick-continue {
+      margin-top: 6px;
+      background: linear-gradient(135deg, #a78bfa, #6d28d9);
+      color: #fff; border: none; border-radius: 999px;
+      padding: 13px 34px; font-weight: 700; font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .robot-pick-continue:disabled { opacity: 0.5; cursor: not-allowed; }
+    .robot-switch-link {
+      background: none; border: none; color: rgba(255,255,255,0.75);
+      font-size: 0.85rem; text-decoration: underline; cursor: pointer; margin-top: -8px;
+    }
+
+    .mode-logo {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .mode-logo-avatar {
+      /* адаптивный размер: не меньше 92px, не больше 120px, растёт с шириной экрана */
+      width:         clamp(92px, 28vw, 120px);
+      height:        clamp(92px, 28vw, 120px);
+      border-radius: 50%;
+      background:    linear-gradient(135deg, #a78bfa, #6d28d9);
+      display:       flex;
+      align-items:   center;
+      justify-content: center;
+      font-size:     3rem;
+      margin:        0 auto 16px;
+      box-shadow:    0 0 40px rgba(167,139,250,0.5);
+      animation:     pulse-glow 2s ease-in-out infinite;
+    }
+
+    .mode-logo-avatar svg {
+      width:  55%;
+      height: 55%;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 40px rgba(167,139,250,0.5); }
+      50%       { box-shadow: 0 0 70px rgba(167,139,250,0.9); }
+    }
+
+    .mode-logo h1 {
+      color:       #fff;
+      font-size:   1.8rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .mode-logo p {
+      color:      rgba(255,255,255,0.6);
+      font-size:  0.95rem;
+      margin-top: 6px;
+    }
+
+    .mode-btn {
+      width:         100%;
+      max-width:     340px;
+      padding:       18px 24px;
+      border-radius: 16px;
+      border:        none;
+      cursor:        pointer;
+      font-size:     1rem;
+      font-weight:   600;
+      display:       flex;
+      align-items:   center;
+      gap:           14px;
+      transition:    all 0.2s ease;
+    }
+
+    .mode-btn:hover {
+      transform:  translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    .mode-btn-ar {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color:      #fff;
+    }
+
+    .mode-btn-chat {
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      color:      #fff;
+    }
+
+    .mode-btn-icon {
+      width:           48px;
+      height:          48px;
+      border-radius:   12px;
+      background:      rgba(255,255,255,0.15);
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      font-size:       1.5rem;
+      flex-shrink:     0;
+    }
+
+    .mode-btn-text { text-align: left; }
+    .mode-btn-title { font-size: 1rem; font-weight: 700; }
+    .mode-btn-desc  { font-size: 0.8rem; opacity: 0.8; margin-top: 2px; }
+
+    .mode-back {
+      color:       rgba(255,255,255,0.5);
+      font-size:   0.85rem;
+      cursor:      pointer;
+      margin-top:  8px;
+      background:  none;
+      border:      none;
+      text-decoration: underline;
+    }
+
+    /* ─── AR РЕЖИМ ─── */
+    #arMode {
+      position: fixed;
+      inset:    0;
+      display:  none;
+      z-index:  100;
+      /* создаёт собственный stacking context — z-index внутри (canvas AR.js
+         в т.ч.) не может "пробить" его и перекрыть шапку/чат снаружи */
+      isolation: isolate;
+    }
+
+    #arMode.active { display: block; }
+
+    #arSceneMount {
+      position: absolute;
+      inset:    0;
+      z-index:  1; /* камера всегда позади интерфейса */
+    }
+    #arSceneMount > a-scene { width: 100%; height: 100%; }
+
+    /* Видео с камеры (наш собственный <video id="arCamVideo"> — см. mountARScene)
+       и WebGL-канвас A-Frame рисуются друг над другом, оба во весь экран.
+       object-fit: contain показывает ВЕСЬ кадр с камеры без обрезки (может
+       появиться чёрная рамка сверху/снизу на нестандартных пропорциях — это
+       нормально), а поверх накладываем управляемый пользователем зум через
+       переменную --ar-zoom (меняется слайдером ниже). */
+    #arSceneMount video,
+    #arSceneMount canvas.a-canvas {
+      position:  absolute !important;
+      inset:     0 !important;
+      width:     100% !important;
+      height:    100% !important;
+      object-fit: contain !important;
+      transform: scale(var(--ar-zoom, 1)) !important;
+      transform-origin: center center !important;
+      z-index:   1 !important;
+    }
+
+    /* ─── Зум-слайдер камеры (управляется пользователем) ─── */
+    #zoomControl {
+      position:      fixed;
+      left:          50%;
+      bottom:        calc(96px + env(safe-area-inset-bottom));
+      transform:     translateX(-50%);
+      z-index:       200;
+      display:       flex;
+      align-items:   center;
+      gap:           8px;
+      background:    rgba(0,0,0,0.55);
+      padding:       8px 14px;
+      border-radius: 99px;
+      border:        1px solid rgba(255,255,255,0.15);
+      width:         min(70vw, 260px);
+    }
+    #zoomControl span { color: #fff; font-size: 0.8rem; opacity: 0.85; flex-shrink: 0; }
+    #zoomSlider {
+      flex: 1;
+      accent-color: #7c3aed;
+      height: 28px;
+    }
+
+    /* Шапка, подсказка маркера и чат должны быть ВСЕГДА поверх камеры */
+    #arHeader, #camHint, #chatBox { position: fixed; z-index: 200; }
+
+    /* AR верхняя панель */
+    #arHeader {
+      position:      fixed;
+      top:           0;
+      left:          0;
+      right:         0;
+      z-index:       200;
+      padding:       calc(12px + env(safe-area-inset-top)) 16px 12px;
+      background:    linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+      display:       flex;
+      align-items:   center;
+      gap:           12px;
+    }
+
+    .ar-back-btn {
+      width:           36px;
+      height:          36px;
+      border-radius:   50%;
+      background:      rgba(255,255,255,0.2);
+      border:          1px solid rgba(255,255,255,0.3);
+      color:           white;
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      cursor:          pointer;
+      font-size:       1.1rem;
+      flex-shrink:     0;
+    }
+
+    .ar-title {
+      flex:        1;
+      color:       white;
+      font-weight: 600;
+      font-size:   0.95rem;
+    }
+
+    .ar-status-pill {
+      padding:       5px 12px;
+      border-radius: 99px;
+      font-size:     0.75rem;
+      font-weight:   600;
+      background:    rgba(255,255,255,0.15);
+      color:         white;
+      border:        1px solid rgba(255,255,255,0.2);
+    }
+
+    .ar-status-pill.found {
+      background: rgba(74,222,128,0.3);
+      border-color: rgba(74,222,128,0.5);
+      color: #4ade80;
+    }
+
+    /* Подсказка про камеру (раньше — подсказка "распечатайте маркер HIRO",
+       теперь маркер не нужен вообще, робот появляется сразу после разрешения
+       доступа к камере) */
+    #camHint {
+      position:      fixed;
+      bottom:        calc(180px + env(safe-area-inset-bottom));
+      left:          50%;
+      transform:     translateX(-50%);
+      z-index:       200;
+      text-align:    center;
+      transition:    opacity 0.3s;
+      width:         90%;
+      max-width:     280px;
+    }
+
+    #camHint.hidden { opacity: 0; pointer-events: none; }
+
+    .marker-card {
+      background:    rgba(0,0,0,0.75);
+      border-radius: 16px;
+      padding:       14px 16px;
+      border:        1px solid rgba(255,255,255,0.1);
+      display:       flex;
+      align-items:   center;
+      gap:           10px;
+    }
+
+    .marker-card .cam-spinner {
+      width:  22px;
+      height: 22px;
+      flex-shrink: 0;
+      border: 3px solid rgba(167,139,250,0.35);
+      border-top-color: #a78bfa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .marker-label {
+      color:      rgba(255,255,255,0.85);
+      font-size:  0.82rem;
+      text-align: left;
+    }
+
+    /* ─── ЧАТБОКС (снизу в AR и в чат режиме) ─── */
+    #chatBox {
+      position:   fixed;
+      bottom:     0;
+      left:       0;
+      right:      0;
+      z-index:    200;
+      padding:    12px 16px calc(16px + env(safe-area-inset-bottom));
+      background: linear-gradient(to top, rgba(0,0,0,0.95) 80%, transparent);
+    }
+
+    /* Диалог сообщений */
+    #messagesWrap {
+      max-height:    32vh;
+      overflow-y:    auto;
+      overscroll-behavior: contain;
+      margin-bottom: 10px;
+      display:       flex;
+      flex-direction: column;
+      gap:           8px;
+      padding:       0 2px;
+    }
+
+    #messagesWrap::-webkit-scrollbar { display: none; }
+
+    .msg {
+      display:       flex;
+      align-items:   flex-end;
+      gap:           8px;
+      animation:     msgIn 0.25s ease;
+    }
+
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-user { justify-content: flex-end; }
+
+    .msg-bubble {
+      max-width:     75%;
+      padding:       10px 14px;
+      border-radius: 16px;
+      font-size:     0.88rem;
+      line-height:   1.5;
+    }
+
+    .msg-user .msg-bubble {
+      background:          linear-gradient(135deg, #7c3aed, #4f46e5);
+      color:               white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-ai .msg-bubble {
+      background:         rgba(255,255,255,0.1);
+      color:              white;
+      border:             1px solid rgba(255,255,255,0.15);
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg-avatar {
+      width:         30px;
+      height:        30px;
+      border-radius: 50%;
+      background:    linear-gradient(135deg, #a78bfa, #6d28d9);
+      display:       flex;
+      align-items:   center;
+      justify-content: center;
+      font-size:     0.9rem;
+      flex-shrink:   0;
+    }
+
+    /* Поле ввода */
+    .input-row {
+      display:     flex;
+      align-items: center;
+      gap:         8px;
+      background:  rgba(255,255,255,0.08);
+      border:      1px solid rgba(255,255,255,0.15);
+      border-radius: 99px;
+      padding:     6px 6px 6px 16px;
+    }
+
+    #questionInput,
+    #chatInput {
+      flex:       1;
+      background: none;
+      border:     none;
+      outline:    none;
+      color:      white;
+      /* минимум 16px — иначе iOS Safari автоматически зумит страницу при фокусе на поле */
+      font-size:  16px;
+      min-width:  0;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    #questionInput::placeholder,
+    #chatInput::placeholder { color: rgba(255,255,255,0.4); }
+
+    .input-btn {
+      width:           40px;
+      height:          40px;
+      border-radius:   50%;
+      border:          none;
+      cursor:          pointer;
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      font-size:       1.1rem;
+      flex-shrink:     0;
+      transition:      all 0.2s;
+    }
+
+    .input-btn:active { transform: scale(0.92); }
+
+    #micBtn {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color:      white;
+    }
+
+    #micBtn.listening {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      animation:  mic-pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes mic-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.5); }
+      50%       { box-shadow: 0 0 0 8px rgba(220,38,38,0); }
+    }
+
+    #sendBtn {
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      color:      white;
+    }
+
+    /* Индикатор печатания */
+    .typing-indicator {
+      display:     flex;
+      align-items: center;
+      gap:         4px;
+      padding:     8px 14px;
+      background:  rgba(255,255,255,0.1);
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+      width:       fit-content;
+    }
+
+    .typing-dot {
+      width:         6px;
+      height:        6px;
+      border-radius: 50%;
+      background:    rgba(255,255,255,0.6);
+      animation:     typing 1.2s ease-in-out infinite;
+    }
+
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typing {
+      0%, 100% { transform: translateY(0);    opacity: 0.4; }
+      50%       { transform: translateY(-4px); opacity: 1;   }
+    }
+
+    /* ─── ЧАТ РЕЖИМ (без AR) ─── */
+    #chatMode {
+      position:        fixed;
+      inset:           0;
+      display:         none;
+      flex-direction:  column;
+      background:      linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      z-index:         100;
+    }
+
+    #chatMode.active { display: flex; }
+
+    #chatHeader {
+      padding:       calc(16px + env(safe-area-inset-top)) 20px 16px;
+      display:       flex;
+      align-items:   center;
+      gap:           12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      flex-shrink:   0;
+    }
+
+    .chat-avatar-wrap {
+      position:  relative;
+      flex-shrink: 0;
+    }
+
+    .chat-avatar {
+      width:         clamp(44px, 12vw, 52px);
+      height:        clamp(44px, 12vw, 52px);
+      border-radius: 50%;
+      background:    linear-gradient(135deg, #a78bfa, #6d28d9);
+      display:       flex;
+      align-items:   center;
+      justify-content: center;
+      position:      relative;
+      overflow:      hidden;
+    }
+
+    /* SVG аватар девочки */
+    .avatar-svg {
+      width:  100%;
+      height: 100%;
+    }
+
+    .chat-online-dot {
+      position:      absolute;
+      bottom:        2px;
+      right:         2px;
+      width:         12px;
+      height:        12px;
+      background:    #4ade80;
+      border-radius: 50%;
+      border:        2px solid #0f0c29;
+    }
+
+    .chat-info { flex: 1; }
+
+    .chat-name {
+      color:       white;
+      font-weight: 700;
+      font-size:   1rem;
+    }
+
+    .chat-subtitle {
+      color:     rgba(255,255,255,0.5);
+      font-size: 0.78rem;
+      margin-top: 2px;
+    }
+
+    /* Говорящий аватар в чате */
+    #chatAvatar {
+      width:       100%;
+      max-width:   320px;
+      margin:      0 auto;
+      padding:     20px;
+      flex-shrink: 0;
+      display:     flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .avatar-container {
+      position:  relative;
+      width:     160px;
+      height:    200px;
+    }
+
+    /* Волны вокруг аватара когда говорит */
+    .speak-wave {
+      position:      absolute;
+      inset:         -10px;
+      border-radius: 50%;
+      border:        2px solid rgba(167,139,250,0.4);
+      animation:     speak-expand 1.5s ease-out infinite;
+      opacity:       0;
+    }
+
+    .speak-wave:nth-child(2) { animation-delay: 0.4s; }
+    .speak-wave:nth-child(3) { animation-delay: 0.8s; }
+
+    .speak-wave.active {
+      animation: speak-expand 1.5s ease-out infinite;
+    }
+
+    @keyframes speak-expand {
+      0%   { transform: scale(1);   opacity: 0.6; }
+      100% { transform: scale(1.5); opacity: 0;   }
+    }
+
+    #chatMessages {
+      flex:       1;
+      overflow-y: auto;
+      padding:    12px 16px;
+      display:    flex;
+      flex-direction: column;
+      gap:        10px;
+    }
+
+    #chatMessages::-webkit-scrollbar { display: none; }
+
+    /* Поле ввода в чат режиме */
+    #chatInputArea {
+      padding:    12px 16px calc(20px + env(safe-area-inset-bottom));
+      flex-shrink: 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* Кнопка переключения голос/текст */
+    .input-mode-toggle {
+      display:         flex;
+      background:      rgba(255,255,255,0.06);
+      border-radius:   99px;
+      padding:         3px;
+      margin-bottom:   10px;
+      width:           fit-content;
+    }
+
+    .toggle-btn {
+      padding:       6px 16px;
+      border-radius: 99px;
+      border:        none;
+      background:    none;
+      color:         rgba(255,255,255,0.5);
+      font-size:     0.82rem;
+      cursor:        pointer;
+      transition:    all 0.2s;
+    }
+
+    .toggle-btn.active {
+      background: rgba(124,58,237,0.8);
+      color:      white;
+    }
+
+    /* ─── АДАПТАЦИЯ ПОД МАЛЕНЬКИЕ ТЕЛЕФОНЫ (iPhone SE и подобные, ≤375px) ─── */
+    @media (max-width: 375px) {
+      #modeSelect { gap: 16px; padding: 20px; }
+      .mode-logo-avatar { width: 84px; height: 84px; margin-bottom: 10px; }
+      .mode-logo h1 { font-size: 1.4rem; }
+      .mode-logo p  { font-size: 0.85rem; }
+      .mode-btn { padding: 14px 18px; }
+      .mode-btn-icon { width: 40px; height: 40px; font-size: 1.25rem; }
+    }
+
+    /* ─── АЛЬБОМНАЯ ОРИЕНТАЦИЯ НА ТЕЛЕФОНЕ ─── */
+    @media (orientation: landscape) and (max-height: 480px) {
+      #modeSelect { flex-direction: row; flex-wrap: wrap; gap: 14px; padding: 16px; }
+      .mode-logo { width: 100%; margin-bottom: 0; }
+      .mode-logo-avatar { width: 60px; height: 60px; margin-bottom: 6px; }
+      .mode-logo h1 { font-size: 1.1rem; }
+      .mode-logo p  { display: none; }
+      .mode-btn { max-width: 260px; padding: 12px 16px; }
+      #messagesWrap { max-height: 22vh; }
+      #chatAvatar { padding: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ ЭКРАН ВЫБОРА РЕЖИМА ═══ -->
+<div id="modeSelect">
+  <div class="mode-logo">
+    <div class="mode-logo-avatar" id="modeLogoAvatar">
+      <!-- SVG аватар Айгуль (робот) -->
+      <svg width="70" height="70" viewBox="0 0 70 70" fill="none">
+        <!-- Антенна -->
+        <line x1="35" y1="10" x2="35" y2="2" stroke="#7c8a9e" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="35" cy="2" r="3.2" fill="#fbbf24"/>
+        <!-- Голова (корпус) -->
+        <rect x="12" y="10" width="46" height="34" rx="10" fill="#c7ced9"/>
+        <rect x="12" y="10" width="46" height="34" rx="10" fill="none" stroke="#7c8a9e" stroke-width="1.5"/>
+        <!-- Крепления по бокам -->
+        <rect x="7" y="24" width="5" height="10" rx="2.5" fill="#94a3b8"/>
+        <rect x="58" y="24" width="5" height="10" rx="2.5" fill="#94a3b8"/>
+        <!-- Заклёпки -->
+        <circle cx="18" cy="14" r="1.4" fill="#7c8a9e"/>
+        <circle cx="52" cy="14" r="1.4" fill="#7c8a9e"/>
+        <!-- Визор -->
+        <rect x="18" y="17" width="34" height="20" rx="7" fill="#12121c"/>
+        <!-- Глаза -->
+        <circle cx="27" cy="27" r="4" fill="#22d3ee"/>
+        <circle cx="43" cy="27" r="4" fill="#22d3ee"/>
+        <circle cx="27" cy="27" r="1.3" fill="#ffffff" opacity="0.9"/>
+        <circle cx="43" cy="27" r="1.3" fill="#ffffff" opacity="0.9"/>
+        <!-- Рот (LED) -->
+        <path d="M29 38 Q35 43 41 38" stroke="#22d3ee" stroke-width="2.2"
+              fill="none" stroke-linecap="round"/>
+        <!-- Шея -->
+        <rect x="28" y="44" width="14" height="7" fill="#4b5563"/>
+        <!-- Тело -->
+        <rect x="17" y="51" width="36" height="19" rx="8" fill="#7c3aed"/>
+        <rect x="17" y="51" width="36" height="19" rx="8" fill="none" stroke="#6d28d9" stroke-width="1"/>
+        <!-- Нагрудный индикатор -->
+        <circle cx="35" cy="61" r="5" fill="#22d3ee" opacity="0.9"/>
+        <circle cx="35" cy="61" r="2" fill="#ffffff"/>
+      </svg>
+    </div>
+    <h1 id="modeSelectH1">Привет! Я Айгуль 👋</h1>
+    <p id="modeSelectP">Твоя AI помощница по урокам</p>
+  </div>
+
+  <button class="mode-btn mode-btn-ar" onclick="startARMode()">
+    <div class="mode-btn-icon">📱</div>
+    <div class="mode-btn-text">
+      <div class="mode-btn-title">AR режим</div>
+      <div class="mode-btn-desc">Я появлюсь в реальном мире через камеру</div>
+    </div>
+  </button>
+
+  <button class="mode-btn mode-btn-chat" onclick="startChatMode()">
+    <div class="mode-btn-icon">💬</div>
+    <div class="mode-btn-text">
+      <div class="mode-btn-title">Чат режим</div>
+      <div class="mode-btn-desc">Общайся со мной голосом или текстом</div>
+    </div>
+  </button>
+
+  <button class="mode-back" onclick="goBack()">← Вернуться к уроку</button>
+</div>
+
+<!-- ═══ AR РЕЖИМ ═══ -->
+<div id="arMode">
+  <div id="arHeader">
+    <button class="ar-back-btn" onclick="stopARMode()">←</button>
+    <div class="ar-title" id="arTitleLabel">🥽 AR Айгуль</div>
+    <div class="ar-status-pill" id="arStatusPill">📷 Включаю камеру…</div>
+  </div>
+
+  <!-- AR сцена монтируется в JS только по нажатию "AR режим" (см. mountARScene) —
+       см. #arSceneMount ниже. Запрос доступа к камере (getUserMedia) происходит
+       именно в этот момент, поэтому разметка НЕ должна присутствовать на
+       странице при загрузке. -->
+  <div id="arSceneMount"></div>
+
+  <!-- Ручной зум камеры — пользователь сам управляет приближением -->
+  <div id="zoomControl">
+    <span>🔍−</span>
+    <input type="range" id="zoomSlider" min="1" max="2.5" step="0.05" value="1">
+    <span>🔍+</span>
+  </div>
+
+  <!-- Подсказка про камеру: показывается пока идёт запрос доступа к камере,
+       прячется, как только видео реально пошло и робот появился на экране —
+       никакого маркера печатать больше не нужно -->
+  <div id="camHint">
+    <div class="marker-card">
+      <div class="cam-spinner"></div>
+      <div class="marker-label">Разрешите доступ к камере — Айгуль появится прямо перед вами</div>
+    </div>
+  </div>
+
+  <!-- Чат в AR режиме -->
+  <div id="chatBox">
+    <div id="messagesWrap"></div>
+    <div class="input-row">
+      <input type="text" id="questionInput"
+             placeholder="Спросите Айгуль...">
+      <button class="input-btn" id="micBtn" onclick="toggleMic()">🎤</button>
+      <button class="input-btn" id="sendBtn" onclick="sendQuestion()">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- Шаблон AR-сцены хранится в <template> (её содержимое браузер НЕ активирует,
+     пока мы не клонируем его в #arSceneMount) — вставляется функцией
+     mountARScene() только после клика "AR режим".
+
+     АРХИТЕКТУРА (без маркера): робот aygulRig — потомок камеры #arCamera,
+     т.е. закреплён прямо "перед лицом" пользователя в её локальных
+     координатах. Это НЕ настоящее мировое трекинг-позиционирование (робот
+     не "стоит" в конкретной точке комнаты) — зато оно единственное, что
+     одинаково стабильно работает и на телефоне (тыловая камера + гироскоп
+     через look-controls), и на ноутбуке (обычная веб-камера, где гироскопа
+     и трекинга объектов просто нет).
+
+     МОДЕЛЬ: настоящий .glb (cute_robot.glb) вместо собранного из примитивов
+     робота. У модели нет скелета/морф-таргетов, зато есть плоский меш с
+     материалом "Layar" ("экран") — talkingRobotFace.js рисует на нём лицо
+     (глаза + рот) через canvas-текстуру и анимирует рот в реальном времени.
+     Слушаем событие "model-loaded" на #robotGltf, создаём face через
+     window.createTalkingFace(...) — см. mountARScene()/animateARMouth() в JS. -->
+<template id="arSceneTemplate">
+  <a-scene
+    id="arScene"
+    embedded
+    renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true"
+    vr-mode-ui="enabled: false"
+    loading-screen="enabled: false"
+    style="width:100%;height:100%; background: transparent">
+
+    <a-assets>
+      <a-asset-item id="robotModelAsset" src="models/cute_robot.glb"></a-asset-item>
+    </a-assets>
+
+    <a-entity light="type: ambient; intensity: 0.9; color: #ffffff"></a-entity>
+    <a-entity light="type: directional; intensity: 0.6; color: #ffffff" position="1 2 1.5"></a-entity>
+
+    <a-entity id="arCamera" camera="fov: 80" look-controls="reverseMouseDrag: false"
+               wasd-controls="enabled: false" position="0 0 0">
+
+      <!-- Робот целиком — потомок камеры, всегда в кадре -->
+      <a-entity id="aygulRig" position="0 -0.55 -2.1" scale="0.47 0.47 0.47"
+                animation__bob="property: position; from: 0 -0.55 -2.1; to: 0 -0.47 -2.1;
+                                dir: alternate; loop: true; dur: 1900; easing: easeInOutSine">
+
+        <!-- Декоративное парящее кольцо под роботом -->
+        <a-torus position="0 -0.95 0" rotation="90 0 0" radius="0.85" radius-tubular="0.02"
+                 material="color:#a78bfa; opacity:0.75; emissive:#7c3aed; emissiveIntensity:0.5"
+                 animation="property: rotation; to: 90 360 0; loop: true; dur: 7000; easing: linear">
+        </a-torus>
+
+        <!-- cute_robot.glb: внутренняя геометрия модели занимает ~3.5 юнита,
+             поэтому даём собственный нормализующий scale внутри aygulRig
+             (который сам получает динамический responsive-scale в JS —
+             см. rigScale в mountARScene/handleARResize). scale=0.66 — робот
+             ещё немного крупнее прежней версии (0.6) по просьбе "сделай
+             робота чуть больше".
+             Если нужно ещё крупнее/мельче или сместить — правьте
+             scale/position только у #robotGltf, остальной код не трогается. -->
+        <a-entity id="robotGltf" gltf-model="#robotModelAsset"
+                   scale="0.66 0.66 0.66" position="0 0.94 0"
+                   animation__idle="property: rotation; from: 0 -6 0; to: 0 6 0; dir: alternate; loop: true; dur: 3600; easing: easeInOutSine">
+        </a-entity>
+      </a-entity>
+    </a-entity>
+  </a-scene>
+</template>
+
+
+<!-- ═══ ЧАТ РЕЖИМ ═══ -->
+<div id="chatMode">
+  <div id="chatHeader">
+    <button class="ar-back-btn" onclick="stopChatMode()">←</button>
+    <div class="chat-avatar-wrap">
+      <div class="chat-avatar" id="chatAvatarIcon">
+        <svg class="avatar-svg" viewBox="0 0 70 70" fill="none">
+          <line x1="35" y1="10" x2="35" y2="2" stroke="#7c8a9e" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="35" cy="2" r="3.2" fill="#fbbf24"/>
+          <rect x="12" y="10" width="46" height="34" rx="10" fill="#c7ced9"/>
+          <rect x="12" y="10" width="46" height="34" rx="10" fill="none" stroke="#7c8a9e" stroke-width="1.5"/>
+          <rect x="7" y="24" width="5" height="10" rx="2.5" fill="#94a3b8"/>
+          <rect x="58" y="24" width="5" height="10" rx="2.5" fill="#94a3b8"/>
+          <circle cx="18" cy="14" r="1.4" fill="#7c8a9e"/>
+          <circle cx="52" cy="14" r="1.4" fill="#7c8a9e"/>
+          <rect x="18" y="17" width="34" height="20" rx="7" fill="#12121c"/>
+          <circle cx="27" cy="27" r="4" fill="#22d3ee"/>
+          <circle cx="43" cy="27" r="4" fill="#22d3ee"/>
+          <circle cx="27" cy="27" r="1.3" fill="#ffffff" opacity="0.9"/>
+          <circle cx="43" cy="27" r="1.3" fill="#ffffff" opacity="0.9"/>
+          <path id="chatMouth" d="M29 38 Q35 43 41 38"
+                stroke="#22d3ee" stroke-width="2.2"
+                fill="none" stroke-linecap="round"/>
+          <rect x="28" y="44" width="14" height="7" fill="#4b5563"/>
+          <rect x="17" y="51" width="36" height="19" rx="8" fill="#7c3aed"/>
+          <rect x="17" y="51" width="36" height="19" rx="8" fill="none" stroke="#6d28d9" stroke-width="1"/>
+          <circle cx="35" cy="61" r="5" fill="#22d3ee" opacity="0.9"/>
+          <circle cx="35" cy="61" r="2" fill="#ffffff"/>
+        </svg>
+      </div>
+      <div class="chat-online-dot"></div>
+    </div>
+    <div class="chat-info">
+      <div class="chat-name" id="chatNameLabel">Айгуль</div>
+      <div class="chat-subtitle" id="chatSubtitle">AI помощница • онлайн</div>
+    </div>
+  </div>
+
+  <div id="chatMessages"></div>
+
+  <div id="chatInputArea">
+    <div class="input-mode-toggle">
+      <button class="toggle-btn active" id="toggleText" onclick="setInputMode('text')">
+        ✏️ Текст
+      </button>
+      <button class="toggle-btn" id="toggleVoice" onclick="setInputMode('voice')">
+        🎤 Голос
+      </button>
+    </div>
+    <div class="input-row">
+      <input type="text" id="chatInput"
+             placeholder="Задайте вопрос Айгуль..."
+             onkeydown="if(event.key==='Enter') sendChatQuestion()">
+      <button class="input-btn" id="chatMicBtn" onclick="toggleChatMic()"
+              style="display:none">🎤</button>
+      <button class="input-btn" id="chatSendBtn"
+              onclick="sendChatQuestion()"
+              style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white">
+        ➤
+      </button>
+    </div>
+  </div>
+</div>
+<script>
+// ─────────────────────────────────────────────
+// ФИКС ВЫСОТЫ ЭКРАНА НА МОБИЛЬНЫХ (--vh)
+// Нужен как запасной вариант для браузеров без поддержки 100dvh —
+// иначе на iOS Safari 100vh "залезает" под адресную строку.
+// ─────────────────────────────────────────────
+function setVhVar() {
+  document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+}
+setVhVar();
+window.addEventListener('resize', setVhVar);
+window.addEventListener('orientationchange', setVhVar);
+
+// ─────────────────────────────────────────────
+// РУЧНОЙ ЗУМ КАМЕРЫ
+// Слайдер меняет CSS-переменную --ar-zoom, которая применяется как
+// transform: scale() к видео/канвасу камеры (см. стили #arSceneMount video).
+// Это чисто визуальный зум поверх уже показанного полного кадра (object-fit:
+// contain) — трекинг маркера при этом не страдает, т.к. AR.js распознаёт
+// маркер по исходным пиксельным данным потока, а не по тому, как CSS
+// отображает <video> на экране.
+// ─────────────────────────────────────────────
+const zoomSlider = document.getElementById('zoomSlider');
+if (zoomSlider) {
+  zoomSlider.addEventListener('input', () => {
+    document.documentElement.style.setProperty('--ar-zoom', zoomSlider.value);
+  });
+}
+
+// ─────────────────────────────────────────────
+// ЗАЩИТА ОТ "УЕЗЖАНИЯ" ФИКСИРОВАННОГО UI (шапка/чат) ВНИЗ
+// AR.js пересчитывает размеры видео/канваса, когда реально приходят первые
+// кадры с камеры (обычно спустя 1-2 сек после запроса getUserMedia) — на
+// некоторых Android-браузерах (в т.ч. Samsung Internet на A51) это может
+// на мгновение сдвинуть скролл страницы на пару пикселей, и position:fixed
+// элементы визуально "уезжают" вниз за пределы экрана. html/body уже
+// заперты (position: fixed) в CSS, но подстрахуемся и явно сбрасываем
+// скролл в 0 несколько раз в первые секунды после входа в AR-режим.
+// ─────────────────────────────────────────────
+function lockARScroll() {
+  window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+}
+function scheduleARScrollLock() {
+  lockARScroll();
+  [200, 500, 1000, 1500, 2500, 4000].forEach(delay => setTimeout(lockARScroll, delay));
+}
+window.addEventListener('resize', lockARScroll);
+window.addEventListener('scroll', lockARScroll, { passive: true });
+
+// ─────────────────────────────────────────────
+// ИНИЦИАЛИЗАЦИЯ
+// ─────────────────────────────────────────────
+const token     = sessionStorage.getItem('token');
+const user      = JSON.parse(sessionStorage.getItem('user') || 'null');
+const params    = new URLSearchParams(window.location.search);
+const lessonId  = params.get('lesson_id');
+const lessonTitleParam = decodeURIComponent(params.get('lesson_title') || 'Урок');
+const lessonDescParam  = decodeURIComponent(params.get('lesson_desc')  || '');
+
+if (!token || !user) window.location.href = 'index.html';
+
+// Состояние
+// ─────────────────────────────────────────────
+// ЕДИНСТВЕННЫЙ AR-РОБОТ — раньше здесь был выбор из 4 персонажей,
+// собранных из примитивов A-Frame; теперь один робот на настоящей
+// 3D-модели (cute_robot.glb), поэтому каталог и экран выбора убраны.
+// tplId — id <template> в HTML, который клонирует mountARScene().
+// accent — цвет для 2D-аватара в шапках (чат/режимы) и подсветки интерфейса.
+// ─────────────────────────────────────────────
+const ROBOT = {
+  tplId: 'arSceneTemplate', name: 'Айгуль',
+  accent: '#22d3ee', accent2: '#7c3aed', bodyColor: '#e7e9ee', armorColor: '#c7ced9'
+};
+
+function getSelectedRobot() {
+  return ROBOT;
+}
+
+// Небольшое 2D SVG-превью робота для заглавного аватара (шапка чата/режимов) —
+// силуэтная схема (антенна / корпус-голова / визор / глаза / рот / тело),
+// перекрашенная под accent-цвета робота.
+function robotPreviewSvg(robot) {
+  const { accent, accent2, bodyColor, armorColor } = robot;
+  return `
+    <svg width="70" height="70" viewBox="0 0 70 70" fill="none">
+      <line x1="35" y1="10" x2="35" y2="2" stroke="${armorColor}" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="35" cy="2" r="3.2" fill="${accent}"/>
+      <rect x="12" y="10" width="46" height="34" rx="10" fill="${bodyColor}"/>
+      <rect x="12" y="10" width="46" height="34" rx="10" fill="none" stroke="${armorColor}" stroke-width="1.5"/>
+      <rect x="7" y="24" width="5" height="10" rx="2.5" fill="${armorColor}"/>
+      <rect x="58" y="24" width="5" height="10" rx="2.5" fill="${armorColor}"/>
+      <rect x="18" y="17" width="34" height="20" rx="7" fill="#12121c"/>
+      <circle cx="27" cy="27" r="4" fill="${accent}"/>
+      <circle cx="43" cy="27" r="4" fill="${accent}"/>
+      <circle cx="27" cy="27" r="1.3" fill="#ffffff" opacity="0.9"/>
+      <circle cx="43" cy="27" r="1.3" fill="#ffffff" opacity="0.9"/>
+      <path d="M29 38 Q35 43 41 38" stroke="${accent}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <rect x="28" y="44" width="14" height="7" fill="${armorColor}"/>
+      <rect x="17" y="51" width="36" height="19" rx="8" fill="${accent2}"/>
+      <rect x="17" y="51" width="36" height="19" rx="8" fill="none" stroke="${accent2}" stroke-width="1"/>
+      <circle cx="35" cy="61" r="5" fill="${accent}" opacity="0.9"/>
+      <circle cx="35" cy="61" r="2" fill="#ffffff"/>
+    </svg>`;
+}
+
+// Применяет имя/цвет робота ко всем видимым текстовым элементам
+// интерфейса (экран выбора режима, шапка AR, шапка чата, приглашение и т.д.)
+function applyRobotBranding() {
+  const r = getSelectedRobot();
+  document.title = `ЕдуПортал — AI Помощница ${r.name}`;
+
+  const avatar = document.getElementById('modeLogoAvatar');
+  if (avatar) avatar.innerHTML = robotPreviewSvg(r);
+
+  const h1 = document.getElementById('modeSelectH1');
+  if (h1) h1.textContent = `Привет! Я ${r.name} 👋`;
+
+  const arTitle = document.getElementById('arTitleLabel');
+  if (arTitle) arTitle.textContent = `🥽 AR ${r.name}`;
+
+  const chatIcon = document.getElementById('chatAvatarIcon');
+  if (chatIcon) chatIcon.innerHTML = robotPreviewSvg(r);
+  const chatName = document.getElementById('chatNameLabel');
+  if (chatName) chatName.textContent = r.name;
+
+  const chatInput = document.getElementById('chatInput');
+  if (chatInput) chatInput.placeholder = `Задайте вопрос ${r.name}...`;
+  const arChatInput = document.getElementById('questionInput');
+  if (arChatInput) arChatInput.placeholder = `Спросите ${r.name}...`;
+
+  const hintLabel = document.querySelector('#camHint .marker-label');
+  if (hintLabel) hintLabel.textContent = `Разрешите доступ к камере — ${r.name} появится прямо перед вами`;
+
+  document.documentElement.style.setProperty('--ar-robot-accent', r.accent);
+}
+
+let currentMode    = null;   // 'ar' | 'chat'
+let isListening    = false;
+let isSpeaking     = false;
+let recognition    = null;
+let inputMode      = 'text'; // 'text' | 'voice'
+let arReady        = false;  // true, как только камера включилась (раньше — "маркер найден")
+let arCameraStream = null;
+let speakQueue     = [];
+let isSpeakingNow  = false;
+let mouthInterval  = null;
+let arVoiceLoop    = true;   // непрерывный голосовой диалог в AR (говоришь → она отвечает → снова слушает)
+
+// Контекст урока для AI
+const lessonContext = {
+  title:       lessonTitleParam,
+  description: lessonDescParam
+};
+
+// История диалога (для контекста Grok)
+let chatHistory = [];
+
+// ─────────────────────────────────────────────
+// КАМЕРА — свой getUserMedia вместо AR.js
+// Пробуем по очереди: тыловая камера телефона (environment) → любая камера
+// с environment-приоритетом → фронтальная (user) → просто "любая доступная
+// камера" без constraint на направление. Такой перебор — единственный
+// надёжный способ работать одинаково и на телефоне (обычно есть и фронталка,
+// и тыловая), и на ноутбуке (обычно только одна веб-камера без разделения
+// на "переднюю/заднюю" вообще — жёсткий facingMode:'environment' там просто
+// упал бы с OverconstrainedError).
+// ─────────────────────────────────────────────
+async function getCameraStream() {
+  const attempts = [
+    { video: { facingMode: { exact: 'environment' } }, audio: false },
+    { video: { facingMode: 'environment' },             audio: false },
+    { video: { facingMode: 'user' },                    audio: false },
+    { video: true,                                      audio: false }
+  ];
+  let lastError = null;
+  for (const constraints of attempts) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError || new Error('camera unavailable');
+}
+
+// ─────────────────────────────────────────────
+// МОНТИРОВАНИЕ / РАЗМОНТИРОВАНИЕ AR-СЦЕНЫ
+// Раньше <a-scene arjs=...> сама запрашивала камеру и требовала печатный
+// маркер HIRO в кадре, чтобы вообще что-то показать. Теперь: мы сами
+// поднимаем видеопоток (getCameraStream) как фон, а робот Айгуль всегда
+// закреплён прямо перед виртуальной камерой A-Frame (см. #aygulRig внутри
+// #arCamera в шаблоне) — он появляется сразу, без поиска маркера, и не
+// "теряется", если что-то в кадре его закрыло на секунду.
+// ─────────────────────────────────────────────
+let arSceneMounted = false;
+
+async function mountARScene() {
+  const mount = document.getElementById('arSceneMount');
+  const robot = getSelectedRobot();
+  const tpl   = document.getElementById(robot.tplId) || document.getElementById('arSceneTemplate');
+  if (!mount || !tpl) return;
+
+  let stream;
+  try {
+    stream = await getCameraStream();
+  } catch (e) {
+    console.error('camera error', e);
+    const pill = document.getElementById('arStatusPill');
+    if (pill) pill.textContent = '❌ Камера недоступна';
+    const hint = document.getElementById('camHint');
+    if (hint) hint.querySelector('.marker-label').textContent =
+      'Нет доступа к камере. Разрешите доступ в настройках браузера и обновите страницу';
+    showMiniToast('❌ Нет доступа к камере');
+    return;
+  }
+  arCameraStream = stream;
+
+  const video = document.createElement('video');
+  video.id = 'arCamVideo';
+  video.autoplay = true;
+  video.muted = true;
+  video.setAttribute('autoplay', '');
+  video.setAttribute('muted', '');
+  video.setAttribute('playsinline', 'true');
+  video.setAttribute('webkit-playsinline', 'true');
+  video.srcObject = stream;
+
+  const node   = tpl.content.cloneNode(true);
+  const camera = node.querySelector('a-entity[camera]');
+  const rig    = node.querySelector('#aygulRig');
+
+  // Масштаб робота под размер экрана — на маленьких телефонах чуть крупнее,
+  // на планшетах/ноутбуках компактнее, чтобы всегда помещался в кадр
+  const minSide  = Math.min(window.innerWidth, window.innerHeight);
+  const rigScale = Math.max(0.36, Math.min(0.62, 195 / minSide));
+  if (rig) rig.setAttribute('scale', `${rigScale} ${rigScale} ${rigScale}`);
+
+  const isPortrait = window.innerHeight >= window.innerWidth;
+  if (camera) camera.setAttribute('camera', `fov: ${isPortrait ? 80 : 88}`);
+
+  mount.innerHTML = '';
+  mount.appendChild(video);
+  mount.appendChild(node);
+  video.play().catch(() => {}); // на некоторых браузерах автозапуск нужно подтвердить явным вызовом
+  arSceneMounted = true;
+
+  initAREvents();
+  attachTalkingFace();
+
+  // Сбрасываем зум на стандартный при каждом новом входе в AR
+  document.documentElement.style.setProperty('--ar-zoom', '1');
+  if (zoomSlider) zoomSlider.value = '1';
+  scheduleARScrollLock();
+
+  // Камера пошла — робот сразу "на связи", ждать нечего
+  arReady = true;
+  const pill = document.getElementById('arStatusPill');
+  if (pill) { pill.textContent = `✅ ${robot.name} на связи`; pill.classList.add('found'); }
+  const hint = document.getElementById('camHint');
+  if (hint) hint.classList.add('hidden');
+}
+
+// ─────────────────────────────────────────────
+// ЛИЦО РОБОТА (talkingRobotFace.js)
+// cute_robot.glb не имеет морф-таргетов/скелета — глаза и рот рисуются
+// поверх меша "Layar" через canvas-текстуру. Ждём событие "model-loaded"
+// на #robotGltf (A-Frame даёт его, когда gltf-model реально загружен и
+// Object3D модели доступен), затем создаём face и запускаем per-frame
+// update() через requestAnimationFrame, пока AR-сцена смонтирована.
+// ─────────────────────────────────────────────
+let currentFace   = null;
+let faceRafId     = null;
+
+function attachTalkingFace() {
+  const mount = document.getElementById('arSceneMount');
+  const gltfEntity = mount && mount.querySelector('#robotGltf');
+  if (!gltfEntity) return;
+
+  const buildFace = (model) => {
+    if (!model || typeof window.createTalkingFace !== 'function' || currentFace) return;
+    currentFace = window.createTalkingFace(model, AFRAME.THREE);
+    if (!faceRafId) faceUpdateLoop();
+  };
+
+  // Модель может быть на 2-й/3-й вход в AR уже в кэше и загрузиться СИНХРОННО
+  // раньше, чем мы успеем подписаться на "model-loaded" — тогда событие
+  // никогда не сработает и лицо не появится. Поэтому сначала проверяем,
+  // не загружена ли модель уже (getObject3D('mesh')), и только если нет —
+  // ждём событие. На всякий случай подстраховываемся коротким поллингом.
+  const already = gltfEntity.getObject3D && gltfEntity.getObject3D('mesh');
+  if (already) {
+    buildFace(already);
+    return;
+  }
+
+  gltfEntity.addEventListener('model-loaded', (evt) => {
+    buildFace(evt.detail && evt.detail.model);
+  }, { once: true });
+
+  let attempts = 0;
+  const pollId = setInterval(() => {
+    attempts++;
+    if (!arSceneMounted || !document.body.contains(gltfEntity)) { clearInterval(pollId); return; }
+    const model = gltfEntity.getObject3D && gltfEntity.getObject3D('mesh');
+    if (model && !currentFace) buildFace(model);
+    if (currentFace || attempts > 50) clearInterval(pollId); // ~5 секунд максимум
+  }, 100);
+}
+
+function faceUpdateLoop() {
+  if (currentFace) currentFace.update();
+  if (arSceneMounted) {
+    faceRafId = requestAnimationFrame(faceUpdateLoop);
+  } else {
+    faceRafId = null;
+  }
+}
+
+function unmountARScene() {
+  stopCamera();
+  if (arCameraStream) {
+    arCameraStream.getTracks().forEach(t => t.stop());
+    arCameraStream = null;
+  }
+  const mount = document.getElementById('arSceneMount');
+  if (mount) mount.innerHTML = '';
+  arSceneMounted = false;
+  arReady = false;
+  if (faceRafId) { cancelAnimationFrame(faceRafId); faceRafId = null; }
+  currentFace = null;
+  animateARMouth(false);
+}
+
+let arResizeTimer = null;
+function handleARResize() {
+  if (currentMode !== 'ar' || !arSceneMounted) return;
+  clearTimeout(arResizeTimer);
+  arResizeTimer = setTimeout(() => {
+    // Видео с камеры не пересоздаём при повороте экрана — только
+    // пересчитываем масштаб робота и FOV камеры "на лету"
+    const mount = document.getElementById('arSceneMount');
+    if (!mount) return;
+    const rig    = mount.querySelector('#aygulRig');
+    const camera = mount.querySelector('a-entity[camera]');
+
+    const minSide  = Math.min(window.innerWidth, window.innerHeight);
+    const rigScale = Math.max(0.36, Math.min(0.62, 195 / minSide));
+    if (rig) rig.setAttribute('scale', `${rigScale} ${rigScale} ${rigScale}`);
+
+    const isPortrait = window.innerHeight >= window.innerWidth;
+    if (camera) camera.setAttribute('camera', `fov: ${isPortrait ? 80 : 88}`);
+  }, 250);
+}
+window.addEventListener('resize', handleARResize);
+window.addEventListener('orientationchange', handleARResize);
+
+function startARMode() {
+  currentMode = 'ar';
+  document.getElementById('modeSelect').style.display = 'none';
+  document.getElementById('arMode').classList.add('active');
+  mountARScene();
+  initSpeechRecognition();
+  // Приветствие через 1.2 секунды (даём время камере реально запуститься) —
+  // и текстом, и голосом. Про маркер больше ни слова — он не нужен.
+  setTimeout(() => {
+    const robotName = getSelectedRobot().name;
+    const greeting = `Привет! Я ${robotName} 👋 Я уже рядом — помогу тебе разобраться с уроком "${lessonContext.title}". Спрашивай голосом или текстом!`;
+    addARMessage('ai', greeting);
+    speak(greeting);
+  }, 1200);
+}
+
+function stopARMode() {
+  // Полностью удаляем AR-сцену и останавливаем камеру
+  unmountARScene();
+  document.getElementById('arMode').classList.remove('active');
+  document.getElementById('modeSelect').style.display = 'flex';
+  currentMode = null;
+  stopSpeech();
+}
+
+function startChatMode() {
+  currentMode = 'chat';
+  document.getElementById('modeSelect').style.display = 'none';
+  document.getElementById('chatMode').classList.add('active');
+  initSpeechRecognition();
+  // Приветственное сообщение
+  setTimeout(() => {
+    const robotName = getSelectedRobot().name;
+    addChatMessage('ai',
+      `Салем! Я ${robotName} — твоя AI помощница 🌟\n\nЯ знаю всё о твоём уроке "${lessonContext.title}". Задавай любые вопросы — голосом или текстом, я отвечу!`);
+    speak(`Салем! Я ${robotName} — твоя AI помощница. Задавай любые вопросы по уроку ${lessonContext.title}`);
+  }, 600);
+}
+
+function stopChatMode() {
+  document.getElementById('chatMode').classList.remove('active');
+  document.getElementById('modeSelect').style.display = 'flex';
+  currentMode = null;
+  stopSpeech();
+  stopMic();
+}
+
+function goBack() {
+  stopSpeech();
+  stopMic();
+  unmountARScene();
+  if (lessonId) {
+    window.location.href = `student.html`;
+  } else {
+    window.history.back();
+  }
+}
+
+function stopCamera() {
+  try {
+    const videos = document.querySelectorAll('video');
+    videos.forEach(v => {
+      if (v.srcObject) v.srcObject.getTracks().forEach(t => t.stop());
+    });
+  } catch(e) {}
+}
+
+// ─────────────────────────────────────────────
+// AR СОБЫТИЯ
+// Маркера больше нет — робот всегда виден, как только запущена камера,
+// поэтому слушать markerFound/markerLost незачем. Функция оставлена как
+// единая точка расширения (например, сюда легко добавить обработку
+// потери видеопотока камеры при сворачивании вкладки и т.п.)
+// ─────────────────────────────────────────────
+function initAREvents() {
+  const video = document.getElementById('arCamVideo');
+  if (video) {
+    video.addEventListener('error', () => {
+      showMiniToast('❌ Проблема с видеопотоком камеры');
+      const pill = document.getElementById('arStatusPill');
+      if (pill) pill.textContent = '❌ Камера недоступна';
+    });
+  }
+}
+
+// ─────────────────────────────────────────────
+// GROK AI — запрос к серверу
+// ─────────────────────────────────────────────
+async function askGrok(question) {
+  try {
+    // Добавляем в историю
+    chatHistory.push({ role: 'user', content: question });
+
+    const res = await fetch('/api/ai-assistant', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        question,
+        lesson_title:       lessonContext.title,
+        lesson_description: lessonContext.description,
+        history:            chatHistory.slice(-6) // последние 6 сообщений
+      })
+    });
+
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // Добавляем ответ в историю
+    chatHistory.push({ role: 'assistant', content: data.answer });
+    return data.answer;
+
+  } catch(e) {
+    return `Извини, произошла ошибка: ${e.message}. Попробуй ещё раз.`;
+  }
+}
+
+// ─────────────────────────────────────────────
+// ОТПРАВИТЬ ВОПРОС (AR режим)
+// ─────────────────────────────────────────────
+async function sendQuestion() {
+  const input = document.getElementById('questionInput');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  input.value    = '';
+  input.disabled = true;
+
+  // Сообщение пользователя
+  addARMessage('user', text);
+
+  // Индикатор печатания
+  const typingId = addARTyping();
+
+  // Запрос к Grok
+  const answer = await askGrok(text);
+
+  // Убираем индикатор, показываем ответ
+  removeTyping(typingId);
+  addARMessage('ai', answer);
+
+  // Озвучиваем (анимация рта запустится автоматически внутри speak())
+  speak(answer);
+
+  input.disabled = false;
+  input.focus();
+}
+
+// ─────────────────────────────────────────────
+// ОТПРАВИТЬ ВОПРОС (чат режим)
+// ─────────────────────────────────────────────
+async function sendChatQuestion() {
+  const input = document.getElementById('chatInput');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  input.value    = '';
+  input.disabled = true;
+
+  addChatMessage('user', text);
+
+  // Обновляем статус
+  document.getElementById('chatSubtitle').textContent = `✍️ ${getSelectedRobot().name} думает...`;
+
+  // Анимация рта (ожидание)
+  startMouthAnimation();
+
+  // Индикатор печатания
+  const typingId = addChatTyping();
+
+  const answer = await askGrok(text);
+
+  removeTyping(typingId);
+  addChatMessage('ai', answer);
+  speak(answer);
+
+  document.getElementById('chatSubtitle').textContent = 'AI помощница • онлайн';
+  input.disabled = false;
+  input.focus();
+}
+
+// ─────────────────────────────────────────────
+// СООБЩЕНИЯ — AR режим
+// ─────────────────────────────────────────────
+function addARMessage(role, text) {
+  const wrap = document.getElementById('messagesWrap');
+  const div  = document.createElement('div');
+  div.className = `msg msg-${role === 'user' ? 'user' : 'ai'}`;
+
+  if (role === 'ai') {
+    div.innerHTML = `
+      <div class="msg-avatar">🤖</div>
+      <div class="msg-bubble">${escapeHtml(text)}</div>`;
+  } else {
+    div.innerHTML = `
+      <div class="msg-bubble">${escapeHtml(text)}</div>`;
+  }
+
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function addARTyping() {
+  const wrap = document.getElementById('messagesWrap');
+  const div  = document.createElement('div');
+  const id   = 'typing-' + Date.now();
+  div.id        = id;
+  div.className = 'msg msg-ai';
+  div.innerHTML = `
+    <div class="msg-avatar">🤖</div>
+    <div class="typing-indicator">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+  return id;
+}
+
+// ─────────────────────────────────────────────
+// СООБЩЕНИЯ — чат режим
+// ─────────────────────────────────────────────
+function addChatMessage(role, text) {
+  const wrap = document.getElementById('chatMessages');
+  const div  = document.createElement('div');
+  div.className = `msg msg-${role === 'user' ? 'user' : 'ai'}`;
+
+  if (role === 'ai') {
+    div.innerHTML = `
+      <div class="msg-avatar">
+        <svg width="30" height="30" viewBox="0 0 70 70" fill="none">
+          <line x1="35" y1="10" x2="35" y2="2" stroke="#7c8a9e" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="35" cy="2" r="3.2" fill="#fbbf24"/>
+          <rect x="12" y="10" width="46" height="34" rx="10" fill="#c7ced9"/>
+          <rect x="18" y="17" width="34" height="20" rx="7" fill="#12121c"/>
+          <circle cx="27" cy="27" r="4" fill="#22d3ee"/>
+          <circle cx="43" cy="27" r="4" fill="#22d3ee"/>
+          <circle cx="29.5" cy="25.5" r="1.2" fill="white"/>
+          <circle cx="43.5" cy="25.5" r="1.2" fill="white"/>
+          <path d="M29 38 Q35 43 41 38" stroke="#22d3ee" stroke-width="2.2"
+                fill="none" stroke-linecap="round"/>
+          <rect x="20" y="52" width="30" height="18" rx="8" fill="#7c3aed"/>
+        </svg>
+      </div>
+      <div class="msg-bubble">${escapeHtml(text).replace(/\n/g,'<br>')}</div>`;
+  } else {
+    div.innerHTML = `
+      <div class="msg-bubble">${escapeHtml(text)}</div>`;
+  }
+
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function addChatTyping() {
+  const wrap = document.getElementById('chatMessages');
+  const div  = document.createElement('div');
+  const id   = 'typing-' + Date.now();
+  div.id        = id;
+  div.className = 'msg msg-ai';
+  div.innerHTML = `
+    <div class="msg-avatar">🤖</div>
+    <div class="typing-indicator">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+  return id;
+}
+
+function removeTyping(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// ─────────────────────────────────────────────
+// РЕЧЬ — озвучка ответов
+// ─────────────────────────────────────────────
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  stopSpeech();
+
+  // Очищаем текст от эмодзи для TTS (сохраняя кириллицу — русский и казахский)
+  const cleanText = text.replace(/[\u{1F300}-\u{1FFFF}]/gu, '')
+                        .replace(/[^\wа-яёА-ЯЁәіңғүұқөһӘІҢҒҮҰҚӨҺ\s.,!?;:()-]/gu, '')
+                        .trim();
+
+  // Стиль конкретного ответа (энергичность/темп) — подстраивает и TTS, и рот
+  const style = analyzeSpeechStyle(cleanText);
+
+  const utterance        = new SpeechSynthesisUtterance(cleanText);
+  utterance.lang         = detectLang(cleanText);
+  utterance.rate         = Math.max(0.85, Math.min(1.08, 0.95 * style.rateAdjust));
+  utterance.pitch        = 1.2;
+  utterance.volume       = 1;
+
+  utterance.onstart = () => {
+    isSpeaking = true;
+    if (currentFace) currentFace.setStyle(style);
+    startMouthAnimation(cleanText, utterance.rate, style);
+    if (currentMode === 'ar' && arReady) animateARMouth(true);
+    document.getElementById('chatSubtitle') &&
+      (document.getElementById('chatSubtitle').textContent = `🔊 ${getSelectedRobot().name} говорит...`);
+  };
+
+  utterance.onend = () => {
+    isSpeaking = false;
+    stopMouthAnimation();
+    if (currentMode === 'ar' && arReady) animateARMouth(false);
+    document.getElementById('chatSubtitle') &&
+      (document.getElementById('chatSubtitle').textContent = 'AI помощница • онлайн');
+
+    // Непрерывный диалог в AR: после ответа снова начинаем слушать
+    if (currentMode === 'ar' && arReady && arVoiceLoop && !isListening) {
+      setTimeout(() => {
+        // Проверяем, что за это время режим/маркер не изменились
+        if (currentMode === 'ar' && arReady && arVoiceLoop) startMic();
+      }, 500);
+    }
+  };
+
+  // Список голосов на телефонах часто подгружается с задержкой —
+  // ждём его, чтобы не взять случайный (например, английский) голос по умолчанию
+  pickVoiceAsync().then(voice => {
+    if (voice) utterance.voice = voice;
+    // если подходящего голоса не нашли — просто не трогаем utterance.voice,
+    // браузер сам подберёт голос по utterance.lang ('ru-RU' / 'kk-KZ')
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
+// Ждём загрузки голосов (актуально для мобильных браузеров) и ищем русский/казахский
+function pickVoiceAsync() {
+  return new Promise(resolve => {
+    const trySelect = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices.length) return null;
+      return voices.find(v =>
+        (v.lang.startsWith('ru') || v.lang.startsWith('kk')) &&
+        (v.name.toLowerCase().includes('female') ||
+         v.name.toLowerCase().includes('woman') ||
+         v.name.toLowerCase().includes('alice') ||
+         v.name.toLowerCase().includes('милена') ||
+         v.name.toLowerCase().includes('tatyana'))
+      ) || voices.find(v => v.lang.startsWith('ru'))
+        || voices.find(v => v.lang.startsWith('kk'))
+        || null; // НЕ берём voices[0] — лучше пусть браузер выберет сам по lang
+    };
+
+    let voice = trySelect();
+    if (voice || window.speechSynthesis.getVoices().length) {
+      resolve(voice);
+      return;
+    }
+    // Голоса ещё не загрузились — ждём событие (с подстраховкой по таймауту)
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve(trySelect());
+    };
+    window.speechSynthesis.onvoiceschanged = finish;
+    setTimeout(finish, 800);
+  });
+}
+
+function stopSpeech() {
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+  isSpeaking = false;
+  stopMouthAnimation();
+}
+
+function detectLang(text) {
+  // Определяем язык по символам
+  const ruChars = (text.match(/[а-яёА-ЯЁ]/g) || []).length;
+  const kkChars = (text.match(/[әіңғүұқөһӘІҢҒҮҰҚӨҺ]/g) || []).length;
+  if (kkChars > 2) return 'kk-KZ';
+  if (ruChars > 5) return 'ru-RU';
+  return 'ru-RU';
+}
+
+// ─────────────────────────────────────────────
+// "СТИЛЬ" ОТВЕТА — считаем один раз на весь текст перед озвучкой.
+// Короткие рубленые фразы с "!"/"?" → бодрее и чуть быстрее.
+// Длинные слова / спокойный текст → плавнее и чуть медленнее.
+// Подстраивает и скорость TTS, и амплитуду/темп анимации рта
+// (см. currentFace.setStyle() и wordOpenness() ниже).
+// ─────────────────────────────────────────────
+function analyzeSpeechStyle(text) {
+  const words = (text.match(/[\wа-яёА-ЯЁәіңғүұқөһӘІҢҒҮҰҚӨҺ]+[.,!?;:]?/gu) || []);
+  const wordCount = words.length || 1;
+  const avgLen = words.reduce((sum, w) => sum + w.replace(/[^\wа-яёА-ЯЁәіңғүұқөһӘІҢҒҮҰҚӨҺ]/gu, '').length, 0) / wordCount;
+  const punchCount = (text.match(/[!?]/g) || []).length;
+  const punchRatio = punchCount / wordCount;
+
+  const intensity = Math.max(0.85, Math.min(1.4, 1 + punchRatio * 1.2 - (avgLen - 5) * 0.03));
+  const speed     = Math.max(0.85, Math.min(1.3, 1 + punchRatio * 0.6 - (avgLen - 5) * 0.02));
+  const rateAdjust = Math.max(0.92, Math.min(1.08, 0.98 + punchRatio * 0.12 - (avgLen - 6) * 0.008));
+
+  return { intensity, speed, rateAdjust, wordCount, avgLen };
+}
+
+// Насколько широко открыть рот на конкретное слово (для 2D-аватара в чате).
+// Логика зеркалит pulseWord() в talkingRobotFace.js, чтобы AR-робот и
+// аватар в чате "говорили" в одном стиле.
+function wordOpenness(word, style) {
+  const clean = String(word || '').trim();
+  if (!clean) return 0.08;
+  const len = clean.replace(/[^\wа-яёА-ЯЁәіңғүұқөһӘІҢҒҮҰҚӨҺ]/gu, '').length || 1;
+  let base = Math.min(1, 0.32 + len * 0.07);
+  if (/[!?]/.test(clean)) base = Math.min(1, base + 0.28);
+  if (/[.,;:]$/.test(clean)) base *= 0.7;
+  return Math.min(1, base * (style ? style.intensity : 1));
+}
+
+// ─────────────────────────────────────────────
+// АНИМАЦИЯ РТА
+// Раньше рот в чате просто мигал открыт/закрыт с фиксированным интервалом,
+// не связанным с текстом. Теперь идём по РЕАЛЬНЫМ словам ответа: у каждого
+// слова — своя длительность (по числу символов и скорости TTS) и своё
+// раскрытие рта (по длине слова и пунктуации), поэтому анимация похожа на
+// настоящую речь и подстраивается под стиль конкретного ответа ИИ.
+// ─────────────────────────────────────────────
+let mouthWordTimer = null;
+
+function setMouthSvgOpenness(amount) {
+  const mouth = document.getElementById('chatMouth');
+  if (!mouth) return;
+  const o = Math.max(0, Math.min(1, amount));
+  const topY = 38 - o * 2.2;   // 38 (закрыт) → ~35.8 (широко открыт)
+  const midY = 43 + o * 5.5;   // 43 (закрыт) → ~48.5 (широко открыт)
+  mouth.setAttribute('d', `M29 ${topY.toFixed(1)} Q35 ${midY.toFixed(1)} 41 ${topY.toFixed(1)}`);
+}
+
+function estimateWordDuration(word, rate, style) {
+  const charsPerSec = 13 * rate * (style ? style.speed : 1);
+  const len = word.length || 1;
+  let dur = (len / charsPerSec) * 1000;
+  dur = Math.max(90, Math.min(420, dur));
+  if (/[!?]/.test(word)) dur += 70;       // эмоциональный акцент — чуть дольше держим рот открытым
+  else if (/[.,;:]$/.test(word)) dur += 90; // конец фразы/запятая — небольшая пауза
+  return dur;
+}
+
+// Идём по словам текста ответа, открывая/закрывая рот под каждое слово.
+// Работает и для 2D-аватара в чате (SVG), и для AR-робота (currentFace.pulseWord).
+function startMouthAnimation(text, rate, style) {
+  stopMouthAnimation();
+  const words = (text || '').split(/\s+/).filter(Boolean);
+
+  if (!words.length) {
+    // Текста ответа ещё нет (например, вызов во время "думает...") — лёгкая
+    // повторяющаяся "болтовня" рта, пока не придёт реальный текст для синхронизации
+    let open = false;
+    mouthWordTimer = setInterval(() => {
+      open = !open;
+      setMouthSvgOpenness(open ? 0.5 : 0.12);
+    }, 220);
+    if (currentMode === 'ar' && arReady && currentFace) currentFace.setSpeaking(true);
+    return;
+  }
+
+  let i = 0;
+  const step = () => {
+    if (!isSpeaking || i >= words.length) { mouthWordTimer = null; return; }
+    const word = words[i];
+    const dur = estimateWordDuration(word, rate, style);
+
+    setMouthSvgOpenness(wordOpenness(word, style));
+    if (currentMode === 'ar' && arReady && currentFace) currentFace.pulseWord(word);
+
+    mouthWordTimer = setTimeout(() => {
+      // короткая "смычка" губ между словами — иначе рот выглядит вечно разинутым
+      setMouthSvgOpenness(0.1);
+      if (currentMode === 'ar' && arReady && currentFace) currentFace.pulseGap(0.1);
+      const gap = Math.min(80, dur * 0.25);
+      mouthWordTimer = setTimeout(() => { i++; step(); }, gap);
+    }, Math.max(40, dur * 0.75));
+  };
+  step();
+}
+
+function stopMouthAnimation() {
+  if (mouthWordTimer) {
+    clearTimeout(mouthWordTimer);
+    clearInterval(mouthWordTimer); // на случай, если шёл цикл "думает..." (setInterval)
+    mouthWordTimer = null;
+  }
+  setMouthSvgOpenness(0);
+}
+
+// ─────────────────────────────────────────────
+// АНИМАЦИЯ РТА AR-РОБОТА
+// У cute_robot.glb "глаза" — это готовая 3D-геометрия самой модели
+// (не трогаем её). А рта у модели нет вообще, поэтому talkingRobotFace.js
+// добавляет отдельную маленькую плоскость с ртом прямо перед лицевой
+// панелью робота и анимирует её через canvas-текстуру (см.
+// attachTalkingFace()/faceUpdateLoop() выше). Здесь просто включаем/
+// выключаем режим "говорит" на уже созданном face — точное раскрытие рта
+// по словам делает startMouthAnimation() выше через
+// currentFace.pulseWord()/pulseGap().
+// ─────────────────────────────────────────────
+function animateARMouth(speaking) {
+  if (currentFace) currentFace.setSpeaking(speaking);
+}
+
+
+// ─────────────────────────────────────────────
+// ГОЛОСОВОЙ ВВОД
+// ─────────────────────────────────────────────
+function initSpeechRecognition() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    console.warn('Speech recognition не поддерживается');
+    return;
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition             = new SpeechRecognition();
+  recognition.continuous  = false;
+  recognition.lang        = 'ru-RU';
+  recognition.interimResults = false;
+
+  recognition.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    if (currentMode === 'ar') {
+      document.getElementById('questionInput').value = text;
+      sendQuestion();
+    } else {
+      document.getElementById('chatInput').value = text;
+      sendChatQuestion();
+    }
+    stopMic();
+  };
+
+  recognition.onerror = (e) => {
+    console.error('Speech error:', e.error);
+    stopMic();
+    if (e.error !== 'no-speech') {
+      showMiniToast('Не удалось распознать речь');
+    }
+  };
+
+  recognition.onend = () => {
+    if (isListening) stopMic();
+  };
+}
+
+function toggleMic() {
+  if (isListening) {
+    stopMic();
+    if (currentMode === 'ar') {
+      arVoiceLoop = false; // пользователь сам остановил — не перезапускаем автоматически
+      showMiniToast('🔇 Голосовой диалог на паузе');
+    }
+  } else {
+    if (currentMode === 'ar') arVoiceLoop = true; // включаем обратно автослушание
+    startMic();
+  }
+}
+
+function toggleChatMic() {
+  if (isListening) {
+    stopMic();
+  } else {
+    startMic();
+  }
+}
+
+function startMic() {
+  if (!recognition) {
+    initSpeechRecognition();
+    if (!recognition) {
+      showMiniToast('Микрофон не поддерживается в этом браузере');
+      return;
+    }
+  }
+
+  stopSpeech(); // Останавливаем речь перед записью
+
+  try {
+    recognition.start();
+    isListening = true;
+
+    // Обновляем кнопки
+    const micBtn     = document.getElementById('micBtn');
+    const chatMicBtn = document.getElementById('chatMicBtn');
+    if (micBtn)     { micBtn.classList.add('listening');     micBtn.textContent     = '⏹'; }
+    if (chatMicBtn) { chatMicBtn.classList.add('listening'); chatMicBtn.textContent = '⏹'; }
+
+    showMiniToast('🎤 Говорите...');
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function stopMic() {
+  if (recognition) {
+    try { recognition.stop(); } catch(e) {}
+  }
+  isListening = false;
+
+  const micBtn     = document.getElementById('micBtn');
+  const chatMicBtn = document.getElementById('chatMicBtn');
+  if (micBtn)     { micBtn.classList.remove('listening');     micBtn.textContent     = '🎤'; }
+  if (chatMicBtn) { chatMicBtn.classList.remove('listening'); chatMicBtn.textContent = '🎤'; }
+}
+
+// ─────────────────────────────────────────────
+// ПЕРЕКЛЮЧЕНИЕ РЕЖИМА ВВОДА (текст/голос)
+// ─────────────────────────────────────────────
+function setInputMode(mode) {
+  inputMode = mode;
+
+  document.getElementById('toggleText').classList.toggle('active', mode === 'text');
+  document.getElementById('toggleVoice').classList.toggle('active', mode === 'voice');
+
+  const chatInput   = document.getElementById('chatInput');
+  const chatSendBtn = document.getElementById('chatSendBtn');
+  const chatMicBtn  = document.getElementById('chatMicBtn');
+
+  if (mode === 'voice') {
+    chatInput.style.display   = 'none';
+    chatSendBtn.style.display = 'none';
+    chatMicBtn.style.display  = 'flex';
+    showMiniToast('Нажмите 🎤 и говорите');
+  } else {
+    chatInput.style.display   = 'block';
+    chatSendBtn.style.display = 'flex';
+    chatMicBtn.style.display  = 'none';
+    chatInput.focus();
+  }
+}
+
+// ─────────────────────────────────────────────
+// МИНИ ТОСТ УВЕДОМЛЕНИЯ
+// ─────────────────────────────────────────────
+function showMiniToast(msg) {
+  const existing = document.getElementById('miniToast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id    = 'miniToast';
+  toast.style.cssText = `
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 8px 18px;
+    border-radius: 99px;
+    font-size: 0.85rem;
+    z-index: 9999;
+    pointer-events: none;
+    animation: fadeIn 0.2s ease;
+    white-space: nowrap;
+  `;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+// ─────────────────────────────────────────────
+// УТИЛИТЫ
+// ─────────────────────────────────────────────
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Загружаем голоса (нужно для выбора женского)
+if (window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    window.speechSynthesis.getVoices();
+  };
+}
+
+// Enter в AR чате
+document.getElementById('questionInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendQuestion();
+});
+
+// Примечание: серверный эндпоинт /api/ai-assistant уже реализован
+// в server.js (через Groq API) — см. секцию "AR ПОМОЩНИЦА — GROQ AI".
+
+// ─────────────────────────────────────────────
+// ИНИЦИАЛИЗАЦИЯ
+// Робот теперь один — экран выбора не нужен, сразу применяем брендинг
+// и показываем экран выбора режима (AR / чат).
+// ─────────────────────────────────────────────
+(function initRobotSelection() {
+  document.getElementById('modeSelect').style.display = 'flex';
+  applyRobotBranding();
+})();
+
+</script>
+</body>
+</html>

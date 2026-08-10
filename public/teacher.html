@@ -1,0 +1,4246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ЕдуПортал — Преподаватель</title>
+  <link rel="stylesheet" href="shared.css">
+  <script src="shared.js"></script>
+  <script src="i18n.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <style>
+    .playlist-card {
+      border:        1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      background:    var(--surface);
+      box-shadow:    var(--shadow);
+      overflow:      hidden;
+      margin-bottom: 16px;
+      transition:    box-shadow var(--transition);
+    }
+
+    .playlist-header {
+      display:     flex;
+      align-items: center;
+      gap:         14px;
+      padding:     16px 20px;
+      cursor:      pointer;
+      user-select: none;
+      transition:  background var(--transition);
+    }
+
+    .playlist-header:hover { background: var(--bg); }
+
+    .playlist-icon {
+      width:           42px;
+      height:          42px;
+      border-radius:   var(--radius);
+      background:      var(--purple-light);
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      flex-shrink:     0;
+      font-size:       1.2rem;
+    }
+
+    .playlist-info { flex: 1; }
+
+    .playlist-title {
+      font-weight: 650;
+      font-size:   1rem;
+      color:       var(--text);
+    }
+
+    .playlist-meta {
+      font-size:  0.8rem;
+      color:      var(--text2);
+      margin-top: 2px;
+    }
+
+    .playlist-chevron {
+      color:      var(--text3);
+      transition: transform var(--transition);
+      flex-shrink: 0;
+    }
+
+    .playlist-chevron.open { transform: rotate(180deg); }
+
+    .playlist-lessons {
+      border-top: 1.5px solid var(--border);
+      display:    none;
+    }
+
+    .playlist-lessons.open { display: block; }
+
+    .lesson-row {
+      display:     flex;
+      align-items: center;
+      gap:         12px;
+      padding:     12px 20px;
+      border-bottom: 1px solid var(--border);
+      transition:  background var(--transition);
+    }
+
+    .lesson-row:last-child { border-bottom: none; }
+    .lesson-row:hover      { background: var(--bg); }
+
+    .lesson-num {
+      width:           28px;
+      height:          28px;
+      border-radius:   50%;
+      background:      var(--surface2);
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      font-size:       0.78rem;
+      font-weight:     600;
+      color:           var(--text2);
+      flex-shrink:     0;
+    }
+
+    .lesson-info { flex: 1; }
+
+    .lesson-title {
+      font-weight: 500;
+      font-size:   0.9rem;
+    }
+
+    .lesson-badges {
+      display:    flex;
+      gap:        5px;
+      margin-top: 4px;
+      flex-wrap:  wrap;
+    }
+
+    .media-badge {
+      font-size:     0.7rem;
+      padding:       2px 8px;
+      border-radius: 99px;
+      font-weight:   600;
+    }
+
+    .media-badge-2d  { background: var(--blue-light);   color: var(--blue);   }
+    .media-badge-vr  { background: #fff3e0;              color: #e65100;       }
+    .media-badge-pdf { background: var(--teal-light);    color: var(--teal);   }
+
+    .playlist-footer {
+      padding:    12px 20px;
+      background: var(--bg);
+      border-top: 1.5px solid var(--border);
+    }
+
+    /* Конструктор тестов */
+    .question-block {
+      border:        1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding:       18px;
+      margin-bottom: 16px;
+      background:    var(--surface);
+      position:      relative;
+    }
+
+    .question-block.dragging {
+      opacity:    0.5;
+      transform:  scale(0.98);
+    }
+
+    .question-block.drag-over {
+      border-color: var(--purple);
+      background:   var(--purple-light);
+    }
+
+    .question-header {
+      display:       flex;
+      align-items:   center;
+      gap:           10px;
+      margin-bottom: 14px;
+    }
+
+    .drag-handle {
+      cursor:  grab;
+      color:   var(--text3);
+      padding: 4px;
+    }
+
+    .drag-handle:active { cursor: grabbing; }
+
+    .question-num {
+      font-weight: 700;
+      font-size:   0.85rem;
+      color:       var(--text2);
+      white-space: nowrap;
+    }
+
+    .option-row {
+      display:       flex;
+      align-items:   center;
+      gap:           10px;
+      margin-bottom: 8px;
+      padding:       8px 12px;
+      border:        1.5px solid var(--border);
+      border-radius: var(--radius);
+      background:    var(--bg);
+      transition:    border-color var(--transition);
+    }
+
+    .option-row.is-correct {
+      border-color: var(--teal);
+      background:   var(--teal-light);
+    }
+
+    .option-correct-cb {
+      width:       18px;
+      height:      18px;
+      accent-color: var(--teal);
+      cursor:      pointer;
+      flex-shrink: 0;
+    }
+
+    .option-img-preview {
+      width:         40px;
+      height:        40px;
+      object-fit:    cover;
+      border-radius: 6px;
+      flex-shrink:   0;
+    }
+
+    /* Проверка Д/З */
+    .hw-card {
+      border:        1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding:       16px 18px;
+      background:    var(--surface);
+      margin-bottom: 12px;
+      display:       flex;
+      align-items:   center;
+      gap:           14px;
+    }
+
+    .hw-card.graded {
+      border-color: var(--teal);
+      background:   var(--teal-light);
+    }
+
+    .hw-student-avatar {
+      width:           40px;
+      height:          40px;
+      border-radius:   50%;
+      background:      var(--purple-light);
+      color:           var(--purple);
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      font-weight:     700;
+      font-size:       1rem;
+      flex-shrink:     0;
+    }
+
+    .hw-info { flex: 1; }
+
+    .hw-student-name {
+      font-weight: 600;
+      font-size:   0.9rem;
+    }
+
+    .hw-meta {
+      font-size:  0.78rem;
+      color:      var(--text2);
+      margin-top: 2px;
+    }
+
+    .grade-input-wrap {
+      display:     flex;
+      align-items: center;
+      gap:         8px;
+    }
+
+    .grade-input {
+      width:         64px !important;
+      text-align:    center;
+      font-weight:   700;
+      font-size:     1rem !important;
+    }
+
+    /* Журнал оценок */
+    .student-selector {
+      display:       flex;
+      align-items:   center;
+      gap:           12px;
+      margin-bottom: 20px;
+      flex-wrap:     wrap;
+    }
+
+    .grades-summary {
+      display:       flex;
+      align-items:   center;
+      gap:           20px;
+      padding:       16px 20px;
+      background:    var(--purple-light);
+      border-radius: var(--radius-lg);
+      margin-bottom: 18px;
+    }
+
+    .avg-grade {
+      font-size:   2.5rem;
+      font-weight: 800;
+      color:       var(--purple);
+      line-height: 1;
+    }
+
+    .avg-label {
+      font-size:  0.82rem;
+      color:      var(--text2);
+      margin-top: 4px;
+    }
+
+    /* ─── ПРОСМОТР WORD-ДОКУМЕНТА В БРАУЗЕРЕ ─── */
+    .docx-preview-box {
+      max-height:    500px;
+      overflow-y:    auto;
+      border:        1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      background:    #fff;
+      padding:       24px 28px;
+      margin-top:    10px;
+      width:         100%;
+    }
+    .docx-content {
+      color:       #1a1a18;
+      font-size:   0.95rem;
+      line-height: 1.65;
+      word-wrap:   break-word;
+    }
+    .docx-content h1, .docx-content h2, .docx-content h3 {
+      margin:      1em 0 0.5em;
+      font-weight: 700;
+      color:       var(--text);
+    }
+    .docx-content p { margin: 0 0 0.9em; }
+    .docx-content ul, .docx-content ol { margin: 0 0 0.9em 1.4em; }
+    .docx-content table {
+      border-collapse: collapse;
+      width:           100%;
+      margin:          0.8em 0;
+    }
+    .docx-content table td, .docx-content table th {
+      border:  1px solid var(--border);
+      padding: 6px 10px;
+    }
+    .docx-content img { max-width: 100%; height: auto; }
+    .docx-content a { color: var(--purple); }
+
+    @media (max-width: 768px) {
+      .docx-preview-box { padding: 16px; max-height: 400px; }
+      .docx-content { font-size: 0.9rem; }
+    }
+
+    /* ── Видеозвонки ─────────────────────────────────────── */
+    .call-start-btn {
+      display: flex; align-items: center; gap: 10px;
+      width: calc(100% - 24px); margin: 0 12px 14px; padding: 12px 14px;
+      background: linear-gradient(135deg, #7c5cff, #5c3cff);
+      color: #fff; border: none; border-radius: 12px; font-weight: 600;
+      font-size: 0.92rem; cursor: pointer; box-shadow: 0 4px 14px rgba(92,60,255,0.35);
+    }
+    .call-start-btn:hover { filter: brightness(1.06); }
+    .call-live-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #ff3b3b22; color: #ff3b3b; border: 1px solid #ff3b3b55;
+      padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700;
+      margin-left: 8px;
+    }
+    .call-live-badge::before {
+      content: ''; width: 7px; height: 7px; border-radius: 50%; background: #ff3b3b;
+      animation: callPulse 1.3s infinite;
+    }
+    @keyframes callPulse { 0%,100%{opacity:1;} 50%{opacity:.25;} }
+
+    .call-modal-groups { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; padding: 8px; }
+    .call-modal-group-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-radius: 8px; cursor: pointer; }
+    .call-modal-group-row:hover { background: #f5f3ff; }
+    .call-modal-group-row input { width: 17px; height: 17px; }
+
+    .call-overlay {
+      position: fixed; inset: 0; background: #14121f; z-index: 2000;
+      display: flex; flex-direction: column; color: #fff;
+    }
+    .call-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 18px; background: #1c1930; flex-wrap: wrap; gap: 10px;
+    }
+    .call-topbar-title { font-weight: 700; font-size: 1rem; }
+    .call-topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .call-btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+      border-radius: 9px; border: 1px solid #ffffff22; background: #2a2645;
+      color: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    }
+    .call-btn:hover { background: #362f5c; }
+    .call-btn.danger { background: #ff3b3b; border-color: #ff3b3b; }
+    .call-btn.danger:hover { background: #e33333; }
+    .call-btn.active-toggle { background: #7c5cff; border-color: #7c5cff; }
+    .call-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .call-body { flex: 1; display: flex; overflow: hidden; }
+    .call-grid {
+      flex: 1; padding: 16px; display: grid; gap: 12px; overflow-y: auto;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      align-content: start;
+    }
+    .call-tile {
+      position: relative; background: #221f38; border-radius: 12px; overflow: hidden;
+      aspect-ratio: 4/3; border: 2px solid transparent;
+    }
+    .call-tile.selected { border-color: #7c5cff; }
+    .call-tile.hand-raised { border-color: #ffcc33; }
+    .call-tile video { width: 100%; height: 100%; object-fit: cover; background: #000; }
+    .call-tile-avatar {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: #2a2645; font-size: 2rem; font-weight: 700; color: #ffffff88;
+    }
+    .call-tile-name {
+      position: absolute; left: 8px; bottom: 8px; background: #00000088;
+      padding: 3px 9px; border-radius: 6px; font-size: 0.78rem; display: flex; align-items: center; gap: 6px;
+    }
+    .call-tile-icons { position: absolute; right: 8px; top: 8px; display: flex; gap: 5px; }
+    .call-tile-icon {
+      width: 26px; height: 26px; border-radius: 50%; background: #00000088;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.8rem;
+    }
+    .call-tile-icon.off { background: #ff3b3bcc; }
+    .call-tile-select { position: absolute; left: 8px; top: 8px; width: 18px; height: 18px; }
+    .call-tile-hand {
+      position: absolute; right: 8px; bottom: 8px; font-size: 1.3rem;
+      animation: handWiggle 1s infinite;
+    }
+    @keyframes handWiggle { 0%,100%{ transform: rotate(0deg);} 50%{ transform: rotate(-12deg);} }
+
+    .call-self-pip {
+      position: absolute; width: 160px; aspect-ratio: 4/3; right: 20px; bottom: 20px;
+      border-radius: 10px; overflow: hidden; border: 2px solid #7c5cff; background: #000; z-index: 5;
+    }
+    .call-self-pip video { width: 100%; height: 100%; object-fit: cover; }
+
+    @media (max-width: 768px) {
+      .call-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); padding: 10px; gap: 8px; }
+      .call-self-pip { width: 100px; right: 10px; bottom: 10px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+        <rect x="6"  y="10" width="26" height="32" rx="4"
+              fill="var(--purple-light)" stroke="var(--purple)" stroke-width="2"/>
+        <rect x="10" y="6"  width="26" height="32" rx="4"
+              fill="var(--purple-light)" stroke="var(--purple)" stroke-width="2" opacity="0.6"/>
+        <line x1="16" y1="16" x2="28" y2="16"
+              stroke="var(--purple)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="16" y1="21" x2="28" y2="21"
+              stroke="var(--purple)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="16" y1="26" x2="22" y2="26"
+              stroke="var(--purple)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M34 8 L32 15 L38 12 L33 18 L36 11 L30 14 Z"
+              fill="var(--amber)" stroke="var(--amber)" stroke-width="0.5"/>
+      </svg>
+      <span class="sidebar-logo-text" data-i18n="login.brandName">ЕдуПортал</span>
+      <button class="sidebar-close-btn" onclick="closeSidebar()" aria-label="Закрыть меню" data-i18n-title="sidebar.close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="sidebar-user-name" id="sidebarName"><span data-i18n="common.teacher">Преподаватель</span></div>
+      <div class="sidebar-user-role">
+        <span class="badge badge-teacher"><span data-i18n="common.teacher">Преподаватель</span></span>
+      </div>
+    </div>
+
+    <button class="call-start-btn" id="btnOpenCallModal" onclick="openCallModal()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+      </svg>
+      <span id="callStartBtnLabel" data-i18n="nav.callStart">Начать видеозвонок</span>
+    </button>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title"><span data-i18n="t.cabinet">Кабинет</span></div>
+
+      <button class="nav-item active" onclick="showSection('playlists')" id="nav-playlists">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <span data-i18n="nav.playlists">Мои плейлисты</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('homework')" id="nav-homework">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        <span data-i18n="nav.homeworkCheck">Проверка Д/З</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('quizzes')" id="nav-quizzes">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span data-i18n="nav.quizzes">Тесты</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('library')" id="nav-library">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+        </svg>
+        <span data-i18n="nav.library">Библиотека</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('grades')" id="nav-grades">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6"  y1="20" x2="6"  y2="14"/>
+        </svg>
+        <span data-i18n="nav.gradeBook">Журнал оценок</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('ai-helper')" id="nav-ai-helper">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <path d="M12 2a4 4 0 014 4v2a4 4 0 01-8 0V6a4 4 0 014-4z"/>
+          <path d="M5 20a7 7 0 0114 0"/>
+          <circle cx="9" cy="7" r="0.6"/><circle cx="15" cy="7" r="0.6"/>
+        </svg>
+        <span data-i18n="nav.aiHelper">AI-ассистент</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('schedule')" id="nav-schedule">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span data-i18n="nav.schedule">Расписание</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('profile')" id="nav-profile">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span data-i18n="sidebar.profile">Мой профиль</span>
+      </button>
+
+      <div class="nav-divider"></div>
+
+      <button class="nav-item" onclick="doLogout()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span data-i18n="sidebar.logout">Выйти</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- ═══ ОСНОВНОЙ КОНТЕНТ ═══ -->
+  <div class="main-content">
+    <header class="main-header">
+      <button class="hamburger" onclick="toggleSidebar()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6"  x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <h1 id="pageTitle">Мои плейлисты</h1>
+      <span class="badge badge-teacher"><span data-i18n="common.teacher">Преподаватель</span></span>
+    </header>
+
+    <div class="page-body">
+
+      <!-- ─── РАЗДЕЛ: ПЛЕЙЛИСТЫ ─── -->
+      <section id="section-playlists">
+        <div class="flex justify-between items-center mb-20">
+          <div>
+            <h2>Мои плейлисты</h2>
+            <p class="text-muted text-sm mt-8">
+              Создавайте плейлисты и добавляйте видео-уроки
+            </p>
+          </div>
+          <button class="btn btn-primary" onclick="openPlaylistModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5"  y1="12" x2="19" y2="12"/>
+            </svg>
+            <span data-i18n="t.newPlaylist">Новый плейлист</span>
+          </button>
+        </div>
+
+        <div id="playlistsList">
+          <!-- Skeleton загрузка -->
+          <div class="card mb-16">
+            <div class="skeleton skeleton-text w-60"></div>
+            <div class="skeleton skeleton-text w-40 mt-8"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: ПРОВЕРКА Д/З ─── -->
+      <section id="section-homework" class="hidden">
+        <div class="flex justify-between items-center mb-20">
+          <div>
+            <h2><span data-i18n="t.homeworkReview">Проверка домашних заданий</span></h2>
+            <p class="text-muted text-sm mt-8">
+              Выберите плейлист и урок для просмотра работ студентов
+            </p>
+          </div>
+        </div>
+
+        <!-- Выбор плейлиста → урока -->
+        <div class="card mb-20">
+          <div class="flex gap-12" style="flex-wrap:wrap">
+            <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
+              <label><span data-i18n="t.playlist">Плейлист</span></label>
+              <select id="hwPlaylistSelect" onchange="onHWPlaylistChange()">
+                <option value="">— Выберите плейлист —</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
+              <label><span data-i18n="t.lesson">Урок</span></label>
+              <select id="hwLessonSelect" onchange="loadHomework()"
+                      disabled>
+                <option value="">— Выберите урок —</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="homeworkList">
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <h3>Выберите урок</h3>
+            <p><span data-i18n="t.selectPlaylistLesson">Выберите плейлист и урок чтобы увидеть сданные работы</span></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: ТЕСТЫ ─── -->
+      <section id="section-quizzes" class="hidden">
+        <div id="quizzesList-view">
+          <div class="flex justify-between items-center mb-20">
+            <div>
+              <h2><span data-i18n="t.myTests">Мои тесты</span></h2>
+              <p class="text-muted text-sm mt-8">
+                Создавайте тесты с вопросами и изображениями
+              </p>
+            </div>
+            <button class="btn btn-primary" onclick="showQuizBuilder()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5"  y1="12" x2="19" y2="12"/>
+              </svg>
+              <span data-i18n="t.createTest">Создать тест</span>
+            </button>
+          </div>
+          <div id="quizzesGrid">
+            <div class="card">
+              <div class="skeleton skeleton-text w-60"></div>
+              <div class="skeleton skeleton-text w-40 mt-8"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Конструктор тестов -->
+        <div id="quizBuilder-view" class="hidden">
+          <div class="flex items-center gap-12 mb-20">
+            <button class="btn btn-ghost btn-sm" onclick="hideQuizBuilder()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+              </svg>
+              Назад
+            </button>
+            <h2><span data-i18n="t.testConstructor">Конструктор теста</span></h2>
+          </div>
+
+          <div class="card mb-16">
+            <div class="form-group">
+              <label>Название теста <span class="required">*</span></label>
+              <input type="text" id="quizTitle"
+                     placeholder="Например: Контрольная работа №1" data-i18n-placeholder="ph.testNameExample">
+            </div>
+            <div class="form-group">
+              <label><span data-i18n="t.testType">Тип теста</span></label>
+              <select id="quizControlType" onchange="onQuizControlTypeChange()">
+                <option value="lesson"><span data-i18n="t.regularLessonTest">Обычный тест по уроку</span></option>
+                <option value="checkpoint1">Экзамен рубежного контроля 1</option>
+                <option value="checkpoint2">Экзамен рубежного контроля 2</option>
+                <option value="session"><span data-i18n="t.sessionExam">Экзамен сессии (итоговый)</span></option>
+              </select>
+            </div>
+            <div class="form-group hidden" id="quizPlaylistWrap">
+              <label><span data-i18n="common.course">Курс</span> <span class="required">*</span></label>
+              <select id="quizPlaylistSelect"></select>
+              <div class="text-sm text-muted mt-8">
+                Пока студент не сдаст этот тест, рубежный контроль/итоговую оценку по курсу выставить нельзя.
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label><span data-i18n="t.attemptLimit">Лимит попыток сдачи</span></label>
+              <input type="number" id="quizMaxAttempts" min="1" step="1"
+                     placeholder="Не ограничено" data-i18n-placeholder="ph.unlimited">
+              <div class="text-sm text-muted mt-8">
+                Оставьте пустым, если студент может пересдавать тест без ограничений.
+                Если указать число — студент не сможет отправить тест сверх этого лимита попыток.
+              </div>
+            </div>
+          </div>
+
+          <div id="questionsList"></div>
+
+          <button class="btn btn-ghost w-full mb-16" onclick="addQuestion()"
+                  style="justify-content:center;border-style:dashed">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5"  y1="12" x2="19" y2="12"/>
+            </svg>
+            Добавить вопрос
+          </button>
+
+          <div class="flex justify-end gap-12">
+            <button class="btn btn-ghost" onclick="hideQuizBuilder()"><span data-i18n="common.cancel">Отмена</span></button>
+            <button class="btn btn-primary" id="saveQuizBtn" onclick="saveQuiz()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              Сохранить тест
+            </button>
+          </div>
+        </div>
+
+        <!-- Результаты теста -->
+        <div id="quizResults-view" class="hidden">
+          <div class="flex items-center gap-12 mb-20">
+            <button class="btn btn-ghost btn-sm" onclick="hideQuizResults()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+              </svg>
+              Назад
+            </button>
+            <h2 id="quizResultsTitle"><span data-i18n="t.testResults">Результаты теста</span></h2>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><span data-i18n="common.student">Студент</span></th>
+                  <th><span data-i18n="common.result">Результат</span></th>
+                  <th><span data-i18n="common.percent">Процент</span></th>
+                  <th><span data-i18n="common.date">Дата</span></th>
+                </tr>
+              </thead>
+              <tbody id="quizResultsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: БИБЛИОТЕКА ─── -->
+      <section id="section-library" class="hidden">
+        <div id="libraryBooksDetail-view" class="hidden">
+          <div class="flex items-center gap-12 mb-20">
+            <button class="btn btn-ghost btn-sm" onclick="closePlaylistDetail()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+              </svg>
+              Назад к подборкам
+            </button>
+            <h2 id="libraryPlaylistDetailTitle"><span data-i18n="lib.collection">Подборка</span></h2>
+          </div>
+          <div class="flex justify-between items-center mb-16">
+            <p class="text-muted text-sm" id="libraryPlaylistDetailDesc"></p>
+            <button class="btn btn-primary btn-sm" onclick="openAddBookModal()">+ Добавить книгу</button>
+          </div>
+          <div id="libraryPlaylistDetailGrid" class="grid-3"></div>
+        </div>
+
+        <div id="libraryMain-view">
+          <div class="flex justify-between items-center mb-20">
+            <div>
+              <h2><span data-i18n="lib.bookLibrary">Библиотека книг</span></h2>
+              <p class="text-muted text-sm mt-8">
+                Загружайте книги и материалы, собирайте их в подборки, копируйте ссылку и прикрепляйте к урокам
+              </p>
+            </div>
+            <button class="btn btn-primary" onclick="openUploadBookModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span data-i18n="lib.uploadBook">Загрузить книгу</span>
+            </button>
+          </div>
+
+          <div class="form-group" style="max-width:360px">
+            <input type="text" id="libraryBookSearch" placeholder="Поиск по названию или автору..." data-i18n-placeholder="ph.searchByTitleAuthor"
+                   oninput="debouncedLoadLibraryBooks()">
+          </div>
+
+          <div id="libraryBooksGrid" class="grid-3 mb-24">
+            <div class="card"><div class="skeleton skeleton-text w-60"></div></div>
+          </div>
+
+          <div class="flex justify-between items-center mb-16 mt-24">
+            <h3 style="margin:0"><span data-i18n="lib.myCollections">Мои подборки</span></h3>
+            <button class="btn btn-ghost btn-sm" onclick="openCreatePlaylistModal()">+ Создать подборку</button>
+          </div>
+          <div id="libraryPlaylistsGrid" class="grid-3"></div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: ЖУРНАЛ ОЦЕНОК ─── -->
+      <section id="section-grades" class="hidden">
+        <div class="flex justify-between items-center mb-20">
+          <div>
+            <h2><span data-i18n="t.gradeBookTitle">Журнал оценок</span></h2>
+            <p class="text-muted text-sm mt-8">
+              100-балльная система: недельные оценки → рубежный контроль 1/2 → сессия
+            </p>
+          </div>
+          <button class="btn btn-primary" onclick="openAddGradeModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5"  y1="12" x2="19" y2="12"/>
+            </svg>
+            Добавить недельную оценку
+          </button>
+        </div>
+
+        <div class="tabs-row" style="display:flex;gap:6px;margin-bottom:18px;border-bottom:1.5px solid var(--border)">
+          <button class="grade-tab-btn active" onclick="showGradeTab('single')" id="gtab-single"
+                  style="padding:10px 16px;background:none;border:none;cursor:pointer;font-weight:600;color:var(--purple);border-bottom:2.5px solid var(--purple);margin-bottom:-1.5px">
+            По студенту
+          </button>
+          <button class="grade-tab-btn" onclick="showGradeTab('journal')" id="gtab-journal"
+                  style="padding:10px 16px;background:none;border:none;cursor:pointer;font-weight:600;color:var(--text2);border-bottom:2.5px solid transparent;margin-bottom:-1.5px">
+            Журнал группы (100 баллов)
+          </button>
+          <button class="grade-tab-btn" onclick="showGradeTab('performance')" id="gtab-performance"
+                  style="padding:10px 16px;background:none;border:none;cursor:pointer;font-weight:600;color:var(--text2);border-bottom:2.5px solid transparent;margin-bottom:-1.5px">
+            📊 Успеваемость группы
+          </button>
+        </div>
+
+        <div id="gradetab-single">
+          <div class="student-selector">
+            <label class="fw-600"><span data-i18n="t.studentColon">Студент:</span></label>
+            <select id="gradeStudentSelect" onchange="loadStudentGrades()"
+                    style="flex:1;max-width:320px">
+              <option value="">— Выберите студента —</option>
+            </select>
+          </div>
+
+          <div id="gradesContent">
+            <div class="empty-state">
+              <div class="empty-state-icon">📊</div>
+              <h3><span data-i18n="t.selectStudent">Выберите студента</span></h3>
+              <p><span data-i18n="t.selectStudentToSeeGrades">Выберите студента из списка чтобы увидеть его оценки</span></p>
+            </div>
+          </div>
+        </div>
+
+        <div id="gradetab-journal" class="hidden">
+          <div class="flex gap-12 mb-20" style="flex-wrap:wrap">
+            <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
+              <label><span data-i18n="t.coursePlaylist">Курс (плейлист)</span></label>
+              <select id="journalPlaylistSelect" onchange="onJournalPlaylistChange()">
+                <option value="">— Выберите курс —</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
+              <label><span data-i18n="common.group">Группа</span></label>
+              <select id="journalGroupSelect" onchange="loadJournal()" disabled>
+                <option value="">— Выберите группу —</option>
+              </select>
+            </div>
+          </div>
+          <div id="journalView">
+            <div class="empty-state">
+              <div class="empty-state-icon">📚</div>
+              <h3><span data-i18n="t.selectCourseGroup">Выберите курс и группу</span></h3>
+              <p>Чтобы увидеть 100-балльный журнал с рубежками и сессией</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="gradetab-performance" class="hidden">
+          <div class="form-group" style="max-width:320px">
+            <label><span data-i18n="common.group">Группа</span></label>
+            <select id="perfGroupSelect" onchange="loadGroupPerformance()">
+              <option value="">— Выберите группу —</option>
+            </select>
+          </div>
+          <div id="performanceView">
+            <div class="empty-state">
+              <div class="empty-state-icon">📊</div>
+              <h3><span data-i18n="grp.select">Выберите группу</span></h3>
+              <p>Средний балл, посещаемость и % пройденных уроков по всем вашим курсам в группе</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: AI-АССИСТЕНТ ДЛЯ УЧИТЕЛЯ ─── -->
+      <section id="section-ai-helper" class="hidden">
+        <div class="mb-20">
+          <h2>AI-ассистент</h2>
+          <p class="text-muted text-sm mt-8">Помогает с рутиной: план урока, отчёт по группе, аналитика успеваемости, письма и объявления</p>
+        </div>
+
+        <div class="tabs-row" style="display:flex;gap:6px;margin-bottom:18px;border-bottom:1.5px solid var(--border);flex-wrap:wrap">
+          <button class="ai-tab-btn active" onclick="showAiTab('plan')" id="aitab-plan"
+                  style="padding:10px 16px;background:none;border:none;cursor:pointer;font-weight:600;color:var(--purple);border-bottom:2.5px solid var(--purple);margin-bottom:-1.5px">
+            📝 План урока
+          </button>
+          <button class="ai-tab-btn" onclick="showAiTab('report')" id="aitab-report"
+                  style="padding:10px 16px;background:none;border:none;cursor:pointer;font-weight:600;color:var(--text2);border-bottom:2.5px solid transparent;margin-bottom:-1.5px">
+            📊 Отчёт по группе
+          </button>
+          <button class="ai-tab-btn" onclick="showAiTab('custom')" id="aitab-custom"
+                  style="padding:10px 16px;background:none;border:none;cursor:pointer;font-weight:600;color:var(--text2);border-bottom:2.5px solid transparent;margin-bottom:-1.5px">
+            ✉️ Свободный запрос
+          </button>
+        </div>
+
+        <div id="aitab-content-plan">
+          <div class="flex gap-12 mb-12" style="flex-wrap:wrap">
+            <div class="form-group" style="flex:2;min-width:220px;margin-bottom:0">
+              <label><span data-i18n="t.lessonTopic">Тема урока</span></label>
+              <input type="text" id="aiPlanTopic" placeholder="Например: Квадратные уравнения" data-i18n-placeholder="ph.topicExample">
+            </div>
+            <div class="form-group" style="flex:1;min-width:140px;margin-bottom:0">
+              <label><span data-i18n="t.levelGroup">Уровень / группа</span></label>
+              <input type="text" id="aiPlanLevel" placeholder="8 класс" data-i18n-placeholder="ph.gradeLevelExample">
+            </div>
+            <div class="form-group" style="flex:0 0 120px;margin-bottom:0">
+              <label><span data-i18n="t.minutesShort">Мин.</span></label>
+              <input type="number" id="aiPlanDuration" value="45" min="10" max="180">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="aiGenerateLessonPlan()" id="btnAiPlan">✨ Сгенерировать план урока</button>
+        </div>
+
+        <div id="aitab-content-report" class="hidden">
+          <div class="form-group" style="max-width:320px">
+            <label><span data-i18n="common.group">Группа</span></label>
+            <select id="aiReportGroupSelect">
+              <option value="">— Выберите группу —</option>
+            </select>
+          </div>
+          <div class="flex gap-8">
+            <button class="btn btn-primary" onclick="aiGenerateGroupReport()" id="btnAiReport">✨ Составить отчёт по успеваемости</button>
+            <button class="btn btn-ghost" onclick="aiGenerateGroupSummary()" id="btnAiSummary">💡 Краткая аналитика + рекомендации</button>
+          </div>
+        </div>
+
+        <div id="aitab-content-custom" class="hidden">
+          <div class="form-group">
+            <label>Опишите задачу (письмо родителям, объявление в группу, идея для мероприятия и т.д.)</label>
+            <textarea id="aiCustomQuestion" rows="4" placeholder="Например: Напиши вежливое сообщение родителям студента Ивана о пропуске трёх уроков подряд" data-i18n-placeholder="ph.aiPromptExample"></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="aiCustomRequest()" id="btnAiCustom">✨ Спросить ассистента</button>
+        </div>
+
+        <div id="aiHelperResult" class="mt-20"></div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: РАСПИСАНИЕ ─── -->
+      <section id="section-schedule" class="hidden">
+        <div class="mb-20">
+          <h2><span data-i18n="t.mySchedule">Моё расписание</span></h2>
+          <p class="text-muted text-sm mt-8"><span data-i18n="t.scheduleAllGroupsDesc">Занятия во всех группах, где вы куратор или преподаёте курс</span></p>
+        </div>
+        <div id="teacherScheduleView">
+          <div class="skeleton skeleton-card"></div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: МОЙ ПРОФИЛЬ ─── -->
+      <section id="section-profile" class="hidden">
+        <div class="flex justify-between items-center mb-20">
+          <div>
+            <h2><span data-i18n="profile.title">Мой профиль</span></h2>
+            <p class="text-muted text-sm mt-8">
+              Все загруженные вами видео-уроки и файлы — можно посмотреть
+              прямо здесь, без скачивания, с любого устройства
+            </p>
+          </div>
+        </div>
+
+        <div class="card mb-20" id="profileInfoCard">
+          <div class="skeleton skeleton-text w-60"></div>
+          <div class="skeleton skeleton-text w-40 mt-8"></div>
+        </div>
+
+        <div class="card mb-20" style="max-width:640px">
+          <h3 class="mb-16"><span data-i18n="profile.loginPassword">Логин и пароль</span></h3>
+          <p class="text-muted text-sm mb-16"><span data-i18n="profile.confirmPasswordToChange">Чтобы сменить логин или пароль, подтвердите текущий пароль.</span></p>
+          <div class="form-error hidden" id="credsError"><span id="credsErrorText"></span></div>
+          <div class="hidden mb-16" id="credsSuccess" style="color:var(--success,#16a34a);font-size:0.9rem">✓ Данные для входа обновлены</div>
+          <div class="form-group">
+            <label><span data-i18n="profile.currentPassword">Текущий пароль</span> <span class="required">*</span></label>
+            <input type="password" id="credsCurrentPassword" autocomplete="current-password">
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label><span data-i18n="profile.newLogin">Новый логин</span></label>
+              <input type="text" id="credsNewUsername" placeholder="Оставьте пустым, если не меняете" data-i18n-placeholder="ph.leaveEmptyIfUnchanged" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label><span data-i18n="profile.newPassword">Новый пароль</span></label>
+              <input type="password" id="credsNewPassword" placeholder="Минимум 6 символов" data-i18n-placeholder="ph.min6chars" autocomplete="new-password">
+            </div>
+          </div>
+          <button class="btn btn-primary" id="credsSaveBtn" onclick="saveMyCredentials()"><span data-i18n="profile.saveLoginPassword">Сохранить логин и пароль</span></button>
+        </div>
+
+        <div id="profileFilesList">
+          <div class="card mb-16">
+            <div class="skeleton skeleton-text w-60"></div>
+            <div class="skeleton skeleton-text w-40 mt-8"></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+<!-- ═══ МОДАЛКА: СОЗДАТЬ ПЛЕЙЛИСТ ═══ -->
+<div class="modal-overlay hidden" id="playlistModal"
+     onclick="closeOnOverlay(event,'playlistModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="playlistModalTitle"><span data-i18n="t.newPlaylist">Новый плейлист</span></h2>
+      <button class="btn-icon" onclick="closeModal('playlistModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6"  y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="plId">
+      <div class="form-group">
+        <label><span data-i18n="common.name">Название</span> <span class="required">*</span></label>
+        <input type="text" id="plTitle" placeholder="Например: Курс по физике" data-i18n-placeholder="ph.courseExample">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label><span data-i18n="common.description">Описание</span></label>
+        <textarea id="plDesc" placeholder="Краткое описание плейлиста..." data-i18n-placeholder="ph.playlistShortDesc"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('playlistModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" id="plSaveBtn" onclick="savePlaylist()">
+        Создать плейлист
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ДОБАВИТЬ УРОК ═══ -->
+<div class="modal-overlay hidden" id="lessonModal"
+     onclick="closeOnOverlay(event,'lessonModal')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 class="modal-title" id="lessonModalTitle"><span data-i18n="t.addLesson">Добавить урок</span></h2>
+      <button class="btn-icon" onclick="closeModal('lessonModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6"  y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="lessonPlaylistId">
+      <input type="hidden" id="lessonId">
+      <div class="form-group">
+        <label><span data-i18n="t.lessonName">Название урока</span> <span class="required">*</span></label>
+        <input type="text" id="lessonTitle" placeholder="Например: Урок 1 — Введение" data-i18n-placeholder="ph.lessonExample1">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="common.description">Описание</span></label>
+        <textarea id="lessonDesc" placeholder="О чём этот урок..." data-i18n-placeholder="ph.aboutLesson"></textarea>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="t.lessonDeadlineOptional">Срок прохождения урока (необязательно)</span></label>
+        <input type="datetime-local" id="lessonDeadline">
+        <span class="form-hint">Если студент не пройдёт урок / не сдаст ДЗ до этого момента, урок для него закроется и в дневнике отметится как пропуск. Открыть доступ обратно сможете только вы.</span>
+      </div>
+
+      <!-- Видео 2D -->
+      <div class="form-group">
+        <label>📹 Обычное видео (2D)</label>
+        <div class="text-sm text-muted mb-8 hidden" id="existing2d">Уже загружено — выберите новый файл, только если хотите его заменить.</div>
+        <div class="file-drop-zone" id="drop2d"
+             ondragover="onDragOver(event,'drop2d')"
+             ondragleave="onDragLeave('drop2d')"
+             ondrop="onDrop(event,'file2d','drop2d')">
+          <input type="file" id="file2d" accept="video/*"
+                 onchange="onFileSelected('file2d','drop2d','sel2d')">
+          <span class="drop-icon">🎬</span>
+          <div class="drop-title"><span data-i18n="t.dragVideo">Перетащите видео или нажмите для выбора</span></div>
+          <div class="drop-hint">MP4, WebM, AVI — до 2 ГБ</div>
+        </div>
+        <div class="file-selected hidden" id="sel2d">
+          <span>🎬</span>
+          <span class="file-name" id="sel2d-name"></span>
+          <button class="btn-remove" onclick="clearFile('file2d','drop2d','sel2d')">✕</button>
+        </div>
+      </div>
+
+      <!-- VR Видео -->
+      <div class="form-group">
+        <label>🥽 VR / 360° видео</label>
+        <div class="text-sm text-muted mb-8 hidden" id="existingVR">Уже загружено — выберите новый файл, только если хотите его заменить.</div>
+        <div class="file-drop-zone" id="dropVR"
+             ondragover="onDragOver(event,'dropVR')"
+             ondragleave="onDragLeave('dropVR')"
+             ondrop="onDrop(event,'fileVR','dropVR')">
+          <input type="file" id="fileVR" accept="video/*"
+                 onchange="onFileSelected('fileVR','dropVR','selVR')">
+          <span class="drop-icon">🥽</span>
+          <div class="drop-title">Перетащите VR видео или нажмите для выбора</div>
+          <div class="drop-hint">360° видео в формате MP4 — до 2 ГБ</div>
+        </div>
+        <div class="file-selected hidden" id="selVR">
+          <span>🥽</span>
+          <span class="file-name" id="selVR-name"></span>
+          <button class="btn-remove" onclick="clearFile('fileVR','dropVR','selVR')">✕</button>
+        </div>
+      </div>
+
+      <!-- Материал PDF/Word -->
+      <div class="form-group" style="margin-bottom:0">
+        <label>📄 Материал (PDF или Word)</label>
+        <div class="text-sm text-muted mb-8 hidden" id="existingMat">Уже загружено — выберите новый файл, только если хотите его заменить.</div>
+        <div class="file-drop-zone" id="dropMat"
+             ondragover="onDragOver(event,'dropMat')"
+             ondragleave="onDragLeave('dropMat')"
+             ondrop="onDrop(event,'fileMat','dropMat')">
+          <input type="file" id="fileMat" accept=".pdf,.doc,.docx"
+                 onchange="onFileSelected('fileMat','dropMat','selMat')">
+          <span class="drop-icon">📄</span>
+          <div class="drop-title"><span data-i18n="lib.dragFile">Перетащите файл или нажмите для выбора</span></div>
+          <div class="drop-hint">PDF, DOC, DOCX — до 50 МБ</div>
+        </div>
+        <div class="file-selected hidden" id="selMat">
+          <span>📄</span>
+          <span class="file-name" id="selMat-name"></span>
+          <button class="btn-remove" onclick="clearFile('fileMat','dropMat','selMat')">✕</button>
+        </div>
+      </div>
+
+      <!-- Прогресс загрузки -->
+      <div class="hidden mt-16" id="uploadProgressWrap">
+        <div class="upload-progress">
+          <div class="upload-progress-bar" id="uploadProgressBar" style="width:0%"></div>
+        </div>
+        <div class="upload-progress-label" id="uploadProgressLabel"><span data-i18n="common.loading">Загрузка...</span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('lessonModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" id="lessonSaveBtn" onclick="saveLesson()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span id="lessonSaveBtnLabel"><span data-i18n="t.uploadLesson">Загрузить урок</span></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ТЕСТ К УРОКУ ═══ -->
+<div class="modal-overlay hidden" id="lessonQuizModal" onclick="closeOnOverlay(event,'lessonQuizModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">Тест: <span id="lessonQuizLessonTitle"></span></h2>
+      <button class="btn-icon" onclick="closeModal('lessonQuizModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="lessonQuizLoading" class="text-muted text-sm"><span data-i18n="common.loading">Загрузка...</span></div>
+
+      <div id="lessonQuizExisting" class="hidden">
+        <p class="text-sm">Тест: <b id="lessonQuizExistingTitle"></b></p>
+        <p class="text-sm text-muted mb-16" id="lessonQuizExistingCount"></p>
+        <div class="flex gap-8">
+          <button class="btn btn-ghost btn-sm" onclick="viewLessonQuizResults()">📊 Результаты</button>
+          <button class="btn btn-ghost btn-sm" onclick="editLessonQuizAttemptsLimit()">🔁 Лимит попыток</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteLessonQuiz()"><span data-i18n="t.deleteTest">Удалить тест</span></button>
+        </div>
+      </div>
+
+      <div id="lessonQuizNone" class="hidden">
+        <p class="text-sm text-muted mb-16"><span data-i18n="t.noTestLinkedYet">К этому уроку ещё не привязан тест.</span></p>
+
+        <div class="card mb-16">
+          <div class="card-title" style="margin-bottom:8px"><span data-i18n="t.createManually">Создать вручную</span></div>
+          <p class="text-sm text-muted mb-8"><span data-i18n="t.constructorWillOpen">Откроется конструктор с вопросами и вариантами ответов.</span></p>
+          <button class="btn btn-primary btn-sm" onclick="createLessonQuizManually()"><span data-i18n="t.createTest">Создать тест</span></button>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title" style="margin-bottom:8px"><span data-i18n="t.importFromFile">Импортировать из файла</span></div>
+          <p class="text-sm text-muted mb-8">
+            Заполните вопросы в Excel по шаблону — тест создастся автоматически.
+            <a href="#" onclick="downloadQuizImportTemplate(event)"><span data-i18n="admin.downloadTemplate">Скачать шаблон</span></a>
+          </p>
+          <div class="form-group">
+            <label>Название теста <span class="required">*</span></label>
+            <input type="text" id="lessonQuizImportTitle" placeholder="Например: Тест по уроку 1" data-i18n-placeholder="ph.testExample">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Файл (.xlsx, .xls, .csv)</label>
+            <div class="file-drop-zone" id="lessonQuizImportDrop"
+                 ondragover="onDragOver(event,'lessonQuizImportDrop')"
+                 ondragleave="onDragLeave('lessonQuizImportDrop')"
+                 ondrop="onDrop(event,'lessonQuizImportFile','lessonQuizImportDrop')">
+              <input type="file" id="lessonQuizImportFile" accept=".xlsx,.xls,.csv"
+                     onchange="onFileSelected('lessonQuizImportFile','lessonQuizImportDrop','lessonQuizImportSel')">
+              <span class="drop-icon">📊</span>
+              <div class="drop-title"><span data-i18n="lib.dragFile">Перетащите файл или нажмите для выбора</span></div>
+              <div class="drop-hint">XLSX, XLS, CSV</div>
+            </div>
+            <div class="file-selected hidden" id="lessonQuizImportSel">
+              <span>📊</span>
+              <span class="file-name" id="lessonQuizImportSel-name"></span>
+              <button class="btn-remove" onclick="clearFile('lessonQuizImportFile','lessonQuizImportDrop','lessonQuizImportSel')">✕</button>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm mt-16" id="lessonQuizImportBtn" onclick="submitLessonQuizImport()"><span data-i18n="t.importAndCreateTest">Импортировать и создать тест</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('lessonQuizModal')"><span data-i18n="common.close">Закрыть</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ДОБАВИТЬ ОЦЕНКУ ВРУЧНУЮ ═══ -->
+<div class="modal-overlay hidden" id="addGradeModal"
+     onclick="closeOnOverlay(event,'addGradeModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="t.addGrade">Добавить оценку</span></h2>
+      <button class="btn-icon" onclick="closeModal('addGradeModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6"  y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label><span data-i18n="common.student">Студент</span> <span class="required">*</span></label>
+        <select id="agStudent"></select>
+      </div>
+      <div class="form-group">
+        <label>Оценка (0–100) <span class="required">*</span></label>
+        <input type="number" id="agValue" min="0" max="100" placeholder="90">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="common.comment">Комментарий</span></label>
+        <textarea id="agComment" placeholder="Необязательно..." data-i18n-placeholder="ph.optionalDots"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addGradeModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" id="agSaveBtn" onclick="saveManualGrade()">
+        Выставить оценку
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ПРОСМОТР ФАЙЛА (видео/материал) БЕЗ СКАЧИВАНИЯ ═══ -->
+<div class="modal-overlay hidden" id="fileViewerModal"
+     onclick="closeOnOverlay(event,'fileViewerModal')">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <h2 class="modal-title" id="fileViewerTitle"><span data-i18n="t.viewFile">Просмотр файла</span></h2>
+      <button class="btn-icon" onclick="closeFileViewer()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6"  y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body" id="fileViewerBody" style="min-height:200px">
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ЗАГРУЗИТЬ КНИГУ В БИБЛИОТЕКУ ═══ -->
+<div class="modal-overlay hidden" id="uploadBookModal" onclick="closeOnOverlay(event,'uploadBookModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="lib.uploadBook">Загрузить книгу</span></h2>
+      <button class="btn-icon" onclick="closeModal('uploadBookModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label><span data-i18n="common.name">Название</span> <span class="required">*</span></label>
+        <input type="text" id="bookTitle" placeholder="Например: Алгебра. Учебник для 9 класса" data-i18n-placeholder="ph.bookTitleExample">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="lib.author">Автор</span></label>
+        <input type="text" id="bookAuthor" placeholder="Автор (необязательно)" data-i18n-placeholder="ph.authorOptional">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="lib.category">Категория</span></label>
+        <input type="text" id="bookCategory" placeholder="Например: Математика (необязательно)" data-i18n-placeholder="ph.subjectExampleOptional">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="common.description">Описание</span></label>
+        <textarea id="bookDescription" rows="2" placeholder="Краткое описание (необязательно)" data-i18n-placeholder="ph.shortDescOptional"></textarea>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="common.bookFile">Файл книги</span> <span class="required">*</span></label>
+        <div class="file-drop-zone" id="bookFileDrop"
+             ondragover="onDragOver(event,'bookFileDrop')"
+             ondragleave="onDragLeave('bookFileDrop')"
+             ondrop="onDrop(event,'bookFile','bookFileDrop')">
+          <input type="file" id="bookFile" accept=".pdf,.doc,.docx,.epub,.fb2,.txt,.rtf"
+                 onchange="onFileSelected('bookFile','bookFileDrop','bookFileSel')">
+          <span class="drop-icon">📚</span>
+          <div class="drop-title"><span data-i18n="lib.dragFile">Перетащите файл или нажмите для выбора</span></div>
+          <div class="drop-hint">PDF, DOC/DOCX, EPUB, FB2, TXT, RTF — до 500 МБ</div>
+        </div>
+        <div class="file-selected hidden" id="bookFileSel">
+          <span>📚</span>
+          <span class="file-name" id="bookFileSel-name"></span>
+          <button class="btn-remove" onclick="clearFile('bookFile','bookFileDrop','bookFileSel')">✕</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label><span data-i18n="lib.cover">Обложка (изображение, необязательно)</span></label>
+        <div class="file-drop-zone" id="bookCoverDrop"
+             ondragover="onDragOver(event,'bookCoverDrop')"
+             ondragleave="onDragLeave('bookCoverDrop')"
+             ondrop="onDrop(event,'bookCover','bookCoverDrop')">
+          <input type="file" id="bookCover" accept=".jpg,.jpeg,.png,.webp"
+                 onchange="onFileSelected('bookCover','bookCoverDrop','bookCoverSel')">
+          <span class="drop-icon">🖼️</span>
+          <div class="drop-title"><span data-i18n="lib.dragImage">Перетащите изображение или нажмите для выбора</span></div>
+          <div class="drop-hint">JPG, PNG, WEBP</div>
+        </div>
+        <div class="file-selected hidden" id="bookCoverSel">
+          <span>🖼️</span>
+          <span class="file-name" id="bookCoverSel-name"></span>
+          <button class="btn-remove" onclick="clearFile('bookCover','bookCoverDrop','bookCoverSel')">✕</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0;margin-top:12px">
+        <label><span data-i18n="lib.whoCanSee">Кто может видеть книгу</span></label>
+        <select id="bookAccessMode">
+          <option value="private">Приватно — открою доступ отдельным людям/группам после загрузки</option>
+          <option value="public">Всем — видят все пользователи портала</option>
+          <option value="link">Только по ссылке — не показывается в общем списке, открыть можно только по прямой ссылке</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('uploadBookModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" id="uploadBookBtn" onclick="submitUploadBook()"><span data-i18n="common.upload">Загрузить</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ДОСТУП К КНИГЕ ═══ -->
+<div class="modal-overlay hidden" id="bookAccessModal" onclick="closeOnOverlay(event,'bookAccessModal')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="lib.bookAccess">Доступ к книге:</span> <span id="bookAccessTitle"></span></h2>
+      <button class="btn-icon" onclick="closeModal('bookAccessModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label><span data-i18n="lib.accessMode">Режим доступа</span></label>
+        <select id="bookAccessModeSelect" onchange="changeAccessMode()">
+          <option value="private">Приватно — по правилам ниже</option>
+          <option value="public"><span data-i18n="lib.allPortalUsers">Всем пользователям портала</span></option>
+          <option value="link"><span data-i18n="lib.linkOnly">Только по прямой ссылке (не показывается в списке)</span></option>
+        </select>
+      </div>
+
+      <div id="bookAccessGrantsWrap">
+        <div class="nav-divider" style="margin:14px 0"></div>
+        <label><span data-i18n="lib.openAccess">Открыть доступ</span></label>
+        <div class="flex gap-8 mb-8">
+          <select id="grantTargetType" onchange="renderGrantPickerResults()" style="max-width:160px">
+            <option value="student"><span data-i18n="lib.toStudent">Студенту</span></option>
+            <option value="group"><span data-i18n="lib.toGroup">Группе</span></option>
+            <option value="teacher"><span data-i18n="lib.toTeacher">Учителю</span></option>
+          </select>
+          <input type="text" id="grantSearch" placeholder="Поиск..." data-i18n-placeholder="ph.searchDots" oninput="renderGrantPickerResults()" style="flex:1">
+        </div>
+        <div id="grantPickerResults" style="max-height:160px;overflow:auto;margin-bottom:14px"></div>
+
+        <label><span data-i18n="lib.whoHasAccess">Кому уже открыт доступ</span></label>
+        <div id="bookAccessGrantsList" style="max-height:200px;overflow:auto"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('bookAccessModal')"><span data-i18n="common.done">Готово</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: СОЗДАТЬ ПОДБОРКУ ═══ -->
+<div class="modal-overlay hidden" id="createPlaylistLibModal" onclick="closeOnOverlay(event,'createPlaylistLibModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="lib.newPlaylist">Новая подборка</span></h2>
+      <button class="btn-icon" onclick="closeModal('createPlaylistLibModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label><span data-i18n="lib.playlistName">Название подборки</span> <span class="required">*</span></label>
+        <input type="text" id="libPlaylistTitle" placeholder="Например: Литература 8 класс" data-i18n-placeholder="ph.subjectGradeExample">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label><span data-i18n="common.description">Описание</span></label>
+        <textarea id="libPlaylistDescription" rows="2" placeholder="Необязательно" data-i18n-placeholder="ph.optional"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('createPlaylistLibModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" onclick="submitCreatePlaylist()"><span data-i18n="common.create">Создать</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ДОБАВИТЬ КНИГУ В ПОДБОРКУ ═══ -->
+<div class="modal-overlay hidden" id="addBookModal" onclick="closeOnOverlay(event,'addBookModal')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="lib.addBookToPlaylist">Добавить книгу в подборку</span></h2>
+      <button class="btn-icon" onclick="closeModal('addBookModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <input type="text" id="addBookSearch" placeholder="Поиск книги..." data-i18n-placeholder="ph.searchBook" oninput="renderAddBookList()">
+      </div>
+      <div id="addBookList" style="max-height:360px;overflow:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addBookModal')"><span data-i18n="common.done">Готово</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: НАЧАТЬ ВИДЕОЗВОНОК ═══ -->
+<div class="modal-overlay hidden" id="callModal" onclick="closeOnOverlay(event,'callModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="t.startVideoCall">Начать видеозвонок</span></h2>
+      <button class="btn-icon" onclick="closeModal('callModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label><span data-i18n="t.callNameOptional">Название звонка (необязательно)</span></label>
+        <input type="text" id="callTitle" placeholder="Например: Урок 5 — повторение" data-i18n-placeholder="ph.lessonExample5">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label><span data-i18n="t.whichGroupsToConnect">Какие группы подключить</span> <span class="required">*</span></label>
+        <div class="call-modal-groups" id="callGroupsList">
+          <div style="padding:10px;color:var(--text2)">Загрузка групп…</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('callModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" id="callStartConfirmBtn" onclick="startVideoCall()">
+        🎥 Начать
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ЭКРАН ЗВОНКА ═══ -->
+<div class="call-overlay hidden" id="callOverlay">
+  <div class="call-topbar">
+    <div class="call-topbar-title" id="callTopbarTitle"><span data-i18n="common.videoCall">Видеозвонок</span></div>
+    <div class="call-topbar-actions">
+      <button class="call-btn" id="callScreenShareBtn" onclick="toggleOwnScreenShare()">🖥️ Показать экран</button>
+      <button class="call-btn" onclick="muteSelected('mic', false)">🔇 Выкл. микрофон (выбранным)</button>
+      <button class="call-btn" onclick="muteSelected('cam', false)">📷 Выкл. камеру (выбранным)</button>
+      <button class="call-btn" onclick="muteAll('mic', false)">🔇 Замьютить всех</button>
+      <button class="call-btn danger" onclick="endVideoCall()"><span data-i18n="t.endCall">Завершить звонок</span></button>
+    </div>
+  </div>
+  <div class="call-body">
+    <div class="call-grid" id="callGrid"></div>
+    <div class="call-self-pip" id="callSelfPip">
+      <video id="callSelfVideo" autoplay playsinline muted></video>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// ИНИЦИАЛИЗАЦИЯ
+// ─────────────────────────────────────────────
+const token = sessionStorage.getItem('token');
+const user  = JSON.parse(sessionStorage.getItem('user') || 'null');
+if (!token || !user || user.role !== 'teacher') {
+  window.location.href = 'index.html';
+}
+document.getElementById('sidebarName').textContent = user.full_name || user.username;
+
+let allPlaylists = [];
+let allStudents  = [];
+let questions    = []; // конструктор тестов
+
+// ─────────────────────────────────────────────
+// API ХЕЛПЕР
+// ─────────────────────────────────────────────
+async function api(method, path, body = null) {
+  const opts = { method, headers: { 'Authorization': `Bearer ${token}` } };
+  if (body instanceof FormData) {
+    opts.body = body;
+  } else if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(`${path}`, opts);
+  if (res.status === 401) { sessionStorage.clear(); window.location.href = 'index.html'; }
+  return res.json();
+}
+
+// XHR для загрузки файлов с прогрессом
+function uploadWithProgress(formData, onProgress, method = 'POST', url = '/api/lessons') {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100));
+    };
+    xhr.onload = () => resolve(JSON.parse(xhr.responseText));
+    xhr.onerror = () => reject(new Error('Ошибка сети'));
+    xhr.send(formData);
+  });
+}
+
+// ─────────────────────────────────────────────
+// МОЙ ПРОФИЛЬ — ЛОГИН И ПАРОЛЬ
+// ─────────────────────────────────────────────
+async function saveMyCredentials() {
+  const current_password = document.getElementById('credsCurrentPassword').value;
+  const new_username = document.getElementById('credsNewUsername').value.trim();
+  const new_password = document.getElementById('credsNewPassword').value;
+  const errBox  = document.getElementById('credsError');
+  const errText = document.getElementById('credsErrorText');
+  const okBox   = document.getElementById('credsSuccess');
+  const btn = document.getElementById('credsSaveBtn');
+  errBox.classList.add('hidden');
+  okBox.classList.add('hidden');
+
+  if (!current_password) {
+    errText.textContent = 'Введите текущий пароль для подтверждения';
+    errBox.classList.remove('hidden');
+    return;
+  }
+  if (!new_username && !new_password) {
+    errText.textContent = 'Укажите новый логин или новый пароль';
+    errBox.classList.remove('hidden');
+    return;
+  }
+  if (new_password && new_password.length < 6) {
+    errText.textContent = 'Новый пароль минимум 6 символов';
+    errBox.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Сохраняем...';
+  try {
+    const res = await api('PUT', '/api/me/credentials', { current_password, new_username, new_password });
+    if (res.error) {
+      errText.textContent = res.error;
+      errBox.classList.remove('hidden');
+      return;
+    }
+    sessionStorage.setItem('token', res.token);
+    sessionStorage.setItem('user', JSON.stringify({ id: res.id, username: res.username, full_name: res.full_name, role: res.role }));
+    okBox.classList.remove('hidden');
+    document.getElementById('credsCurrentPassword').value = '';
+    document.getElementById('credsNewPassword').value = '';
+    showToast(i18nT('toast.admin.credentialsUpdated'));
+    setTimeout(() => location.reload(), 900);
+  } catch (e) {
+    errText.textContent = 'Ошибка сети';
+    errBox.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Сохранить логин и пароль';
+  }
+}
+
+// ─────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────
+function showToast(message, type = 'success') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `<span>${{success:'✓',error:'✕',info:'ℹ',warning:'⚠'}[type]||'✓'}</span> ${message}`;
+  c.appendChild(t);
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+// ─────────────────────────────────────────────
+// НАВИГАЦИЯ
+// ─────────────────────────────────────────────
+function showSection(name) {
+  closeSidebar(); // на мобильном меню должно закрываться при переходе в раздел
+  document.querySelectorAll('[id^="section-"]').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`section-${name}`).classList.remove('hidden');
+  document.getElementById(`nav-${name}`).classList.add('active');
+  currentSectionName = name;
+  document.getElementById('pageTitle').textContent = TEACHER_TITLE_KEYS[name] ? i18nT(TEACHER_TITLE_KEYS[name]) : name;
+  if (name === 'homework') fillHWSelects();
+  if (name === 'grades')   { loadAllStudentsForGrades(); fillJournalPlaylistSelect(); }
+  if (name === 'quizzes')  loadQuizzes();
+  if (name === 'profile')  loadProfile();
+  if (name === 'schedule') loadTeacherSchedule();
+  if (name === 'library')  { loadLibraryBooks(); loadLibraryPlaylists(); }
+  if (name === 'ai-helper') fillAiReportGroupSelect();
+}
+const TEACHER_TITLE_KEYS = {
+  playlists: 'nav.playlists',
+  homework:  'nav.homeworkCheck',
+  quizzes:   'nav.quizzes',
+  grades:    'nav.gradeBook',
+  schedule:  'nav.schedule',
+  library:   'nav.library',
+  profile:   'sidebar.profile',
+  'ai-helper': 'nav.aiHelper'
+};
+let currentSectionName = 'playlists';
+document.addEventListener('i18n:changed', () => {
+  const key = TEACHER_TITLE_KEYS[currentSectionName];
+  if (key) document.getElementById('pageTitle').textContent = i18nT(key);
+});
+
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
+}
+
+function doLogout() {
+  sessionStorage.clear();
+  window.location.href = 'index.html';
+}
+
+// ─────────────────────────────────────────────
+// ПЛЕЙЛИСТЫ
+// ─────────────────────────────────────────────
+async function loadPlaylists() {
+  try {
+    allPlaylists = await api('GET', '/api/playlists');
+    renderPlaylists();
+  } catch(e) {
+    showToast(i18nT('toast.teacher.loadPlaylistsError'), 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+// ПРОФИЛЬ ПРЕПОДАВАТЕЛЯ — все загруженные видео и файлы
+// ─────────────────────────────────────────────
+async function loadProfile() {
+  try {
+    const playlists = await api('GET', '/api/playlists'); // сервер уже отдаёт только свои плейлисты учителю
+    allPlaylists = playlists;
+    renderProfile(playlists);
+  } catch(e) {
+    showToast(i18nT('toast.teacher.loadProfileError'), 'error');
+  }
+}
+
+function renderProfile(playlists) {
+  const lessons = [];
+  playlists.forEach(pl => {
+    (pl.lessons || []).forEach(l => lessons.push({ ...l, playlistTitle: pl.title }));
+  });
+
+  const totalFiles = lessons.reduce((sum, l) =>
+    sum + (l.has_video_2d?1:0) + (l.has_video_vr?1:0) + (l.has_material?1:0), 0);
+
+  document.getElementById('profileInfoCard').innerHTML = `
+    <div class="flex items-center gap-16">
+      <div class="playlist-icon" style="width:56px;height:56px;font-size:1.4rem">👤</div>
+      <div>
+        <div class="fw-700" style="font-size:1.1rem">${escapeHtmlT(user?.full_name || 'Преподаватель')}</div>
+        <div class="text-sm text-muted">@${escapeHtmlT(user?.username || '')}</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:24px;text-align:center">
+        <div><div class="fw-700" style="font-size:1.3rem">${playlists.length}</div><div class="text-sm text-muted"><span data-i18n="t.playlistsCountWord">плейлистов</span></div></div>
+        <div><div class="fw-700" style="font-size:1.3rem">${lessons.length}</div><div class="text-sm text-muted"><span data-i18n="t.lessonsCountWord">уроков</span></div></div>
+        <div><div class="fw-700" style="font-size:1.3rem">${totalFiles}</div><div class="text-sm text-muted"><span data-i18n="t.filesCountWord">файлов</span></div></div>
+      </div>
+    </div>
+  `;
+
+  const listEl = document.getElementById('profileFilesList');
+  if (!lessons.length) {
+    listEl.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🎬</div>
+        <h3><span data-i18n="t.noLessonsUploadedYet">Пока нет загруженных уроков</span></h3>
+        <p><span data-i18n="t.addLessonHint">Добавьте урок с видео или материалом в разделе "Мои плейлисты"</span></p>
+      </div>`;
+    return;
+  }
+
+  listEl.innerHTML = lessons.map(l => `
+    <div class="card mb-16">
+      <div class="flex justify-between items-center" style="flex-wrap:wrap;gap:8px">
+        <div>
+          <div class="fw-600">${escapeHtmlT(l.title)}</div>
+          <div class="text-sm text-muted">${escapeHtmlT(l.playlistTitle)}</div>
+        </div>
+        <div class="flex gap-8" style="flex-wrap:wrap">
+          ${l.has_video_2d ? `<button class="btn btn-ghost btn-sm" onclick='openFileViewer(${JSON.stringify(l.video_2d_path)}, "video")'>📹 Видео</button>` : ''}
+          ${l.has_video_vr ? `<button class="btn btn-ghost btn-sm" onclick='openFileViewer(${JSON.stringify(l.video_vr_path)}, "vr")'>🥽 VR видео</button>` : ''}
+          ${l.has_material ? `<button class="btn btn-ghost btn-sm" onclick='openFileViewer(${JSON.stringify(l.material_path)}, "material")'>📄 Материал</button>` : ''}
+          ${(!l.has_video_2d && !l.has_video_vr && !l.has_material) ? `<span class="text-sm text-muted"><span data-i18n="t.filesNotUploaded">Файлы не загружены</span></span>` : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function escapeHtmlT(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ─── Просмотр файла (видео/VR/материал) прямо в браузере, без скачивания ───
+function openFileViewer(url, kind) {
+  const body  = document.getElementById('fileViewerBody');
+  const title = document.getElementById('fileViewerTitle');
+
+  if (kind === 'video') {
+    title.textContent = '📹 Видео-урок';
+    body.innerHTML = `
+      <video controls controlsList="nodownload" playsinline
+             style="width:100%;max-height:70vh;border-radius:var(--radius-lg);background:#000"
+             src="${url}"></video>`;
+  } else if (kind === 'vr') {
+    title.textContent = '🥽 VR видео';
+    body.innerHTML = `
+      <div style="width:100%;height:60vh;border-radius:var(--radius-lg);overflow:hidden">
+        <a-scene embedded style="width:100%;height:100%">
+          <a-assets><video id="profileVrVid" crossorigin="anonymous" loop src="${url}"></video></a-assets>
+          <a-videosphere src="#profileVrVid" rotation="0 -90 0"></a-videosphere>
+          <a-camera look-controls wasd-controls></a-camera>
+        </a-scene>
+      </div>
+      <div class="text-sm text-muted mt-8" style="text-align:center">
+        🖱 Тяните мышью для поворота · 📱 Наклоняйте устройство для VR режима
+      </div>
+      <div style="text-align:center;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('profileVrVid').play()">▶ Запустить видео</button>
+      </div>`;
+  } else if (kind === 'material') {
+    title.textContent = '📄 Учебный материал';
+    if (url.endsWith('.pdf')) {
+      body.innerHTML = `<iframe src="${url}" style="width:100%;height:70vh;border:none;border-radius:var(--radius-lg)"></iframe>`;
+    } else if (url.endsWith('.docx')) {
+      body.innerHTML = `
+        <div class="docx-preview-box" id="profileDocxBox">
+          <div class="empty-state"><div class="empty-state-icon">⏳</div><p><span data-i18n="t.loadingDocument">Загружаю документ...</span></p></div>
+        </div>`;
+      renderProfileDocx(url);
+    } else {
+      body.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📝</div>
+          <p>Формат .doc не поддерживает предпросмотр в браузере.
+             <a href="${url}" target="_blank"><span data-i18n="t.openInNewTab">Открыть в новой вкладке</span></a></p>
+        </div>`;
+    }
+  }
+
+  openModal('fileViewerModal');
+}
+
+async function renderProfileDocx(url) {
+  const box = document.getElementById('profileDocxBox');
+  if (!box) return;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Не удалось загрузить файл');
+    const arrayBuffer = await response.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    box.innerHTML = `<div class="docx-content">${result.value}</div>`;
+  } catch(e) {
+    box.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">⚠️</div>
+        <p><span data-i18n="t.cantDisplayDocument">Не удалось отобразить документ.</span> <a href="${url}" target="_blank"><span data-i18n="t.openInNewTab">Открыть в новой вкладке</span></a></p>
+      </div>`;
+  }
+}
+
+function closeFileViewer() {
+  closeModal('fileViewerModal');
+  document.getElementById('fileViewerBody').innerHTML = '';
+}
+
+function renderPlaylists() {
+  const container = document.getElementById('playlistsList');
+  if (!allPlaylists.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🎬</div>
+        <h3><span data-i18n="t.noPlaylistsYet">Плейлистов пока нет</span></h3>
+        <p><span data-i18n="t.createFirstPlaylist">Создайте первый плейлист и добавьте видео-уроки</span></p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = allPlaylists.map((pl, i) => `
+    <div class="playlist-card animate-fadeInUp delay-${Math.min(i+1,4)}">
+      <div class="playlist-header" onclick="togglePlaylist(${pl.id})">
+        <div class="playlist-icon">🎬</div>
+        <div class="playlist-info">
+          <div class="playlist-title">${pl.title}</div>
+          <div class="playlist-meta">
+            ${pl.lessons.length} ${declLesson(pl.lessons.length)}
+            ${pl.description ? ' · ' + pl.description : ''}
+          </div>
+        </div>
+        <div class="flex items-center gap-8">
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openLessonModal(${pl.id})">
+            + Урок
+          </button>
+          <button class="btn btn-ghost btn-sm" title="Редактировать плейлист"
+                  onclick="event.stopPropagation();openPlaylistModal(${pl.id})">
+            ✏️
+          </button>
+          <button class="btn btn-danger btn-sm"
+                  onclick="event.stopPropagation();deletePlaylist(${pl.id})">✕</button>
+          <svg class="playlist-chevron" id="chev-${pl.id}"
+               width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+      <div class="playlist-lessons" id="lessons-${pl.id}">
+        ${pl.lessons.length === 0
+          ? `<div class="empty-state" style="padding:20px">
+               <p>Нет уроков. Нажмите "+ Урок" чтобы добавить.</p>
+             </div>`
+          : pl.lessons.map((l, li) => `
+            <div class="lesson-row">
+              <div class="lesson-num">${li + 1}</div>
+              <div class="lesson-info">
+                <div class="lesson-title">${l.title}</div>
+                <div class="lesson-badges">
+                  ${l.has_video_2d ? '<span class="media-badge media-badge-2d">📹 2D</span>' : ''}
+                  ${l.has_video_vr ? '<span class="media-badge media-badge-vr">🥽 VR</span>' : ''}
+                  ${l.has_material ? '<span class="media-badge media-badge-pdf">📄 Материал</span>' : ''}
+                  ${l.deadline ? `<span class="media-badge" style="background:var(--amber-light);color:var(--amber-dark)">⏱ до ${new Date(l.deadline).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>` : ''}
+                  ${l.quiz_id ? `<span class="media-badge" style="background:var(--purple-light);color:var(--purple)">📝 Тест (${l.quiz_question_count})</span>` : ''}
+                </div>
+              </div>
+              <button class="btn btn-ghost btn-sm" title="Тест к уроку"
+                      onclick="openLessonQuizModal(${l.id}, '${escapeHtmlT(l.title).replace(/'/g, "\\'")}', ${pl.id})">
+                📝 Тест
+              </button>
+              <button class="btn btn-ghost btn-sm" title="Задать/изменить срок прохождения" onclick="setLessonDeadline(${l.id}, ${l.deadline ? `'${l.deadline}'` : 'null'})">⏱ Срок</button>
+              <button class="btn btn-ghost btn-sm" title="Редактировать урок"
+                      onclick="openLessonModal(${pl.id}, ${l.id})">✏️</button>
+              <button class="btn btn-danger btn-sm"
+                      onclick="deleteLesson(${l.id},${pl.id})">✕</button>
+            </div>`).join('')
+        }
+        <div class="playlist-footer">
+          <button class="btn btn-ghost btn-sm" onclick="openLessonModal(${pl.id})">
+            + Добавить урок
+          </button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function declLesson(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return 'урок';
+  if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) return 'урока';
+  return 'уроков';
+}
+
+function togglePlaylist(id) {
+  const lessons = document.getElementById(`lessons-${id}`);
+  const chev    = document.getElementById(`chev-${id}`);
+  lessons.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+function openPlaylistModal(playlistId = null) {
+  const pl = playlistId ? allPlaylists.find(p => p.id === playlistId) : null;
+  document.getElementById('plId').value    = pl ? pl.id : '';
+  document.getElementById('plTitle').value = pl ? pl.title : '';
+  document.getElementById('plDesc').value  = pl ? (pl.description || '') : '';
+  document.getElementById('playlistModalTitle').textContent = pl ? 'Изменить плейлист' : 'Новый плейлист';
+  document.getElementById('plSaveBtn').innerHTML = pl ? 'Сохранить изменения' : 'Создать плейлист';
+  openModal('playlistModal');
+  setTimeout(() => document.getElementById('plTitle').focus(), 100);
+}
+
+async function savePlaylist() {
+  const id    = document.getElementById('plId').value;
+  const title = document.getElementById('plTitle').value.trim();
+  const desc  = document.getElementById('plDesc').value.trim();
+  if (!title) { showToast(i18nT('toast.teacher.enterPlaylistName'), 'error'); return; }
+  const btn = document.getElementById('plSaveBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> ${id ? 'Сохраняем...' : 'Создаём...'}`;
+  try {
+    const res = id
+      ? await api('PUT', `/api/playlists/${id}`, { title, description: desc })
+      : await api('POST', '/api/playlists', { title, description: desc });
+    if (res.error) { showToast(res.error, 'error'); return; }
+    closeModal('playlistModal');
+    showToast(id ? 'Плейлист обновлён' : 'Плейлист создан');
+    await loadPlaylists();
+  } catch(e) {
+    showToast(i18nT('toast.teacher.networkError'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = id ? 'Сохранить изменения' : 'Создать плейлист';
+  }
+}
+
+async function deletePlaylist(id) {
+  if (!confirm('Удалить плейлист и все его уроки?')) return;
+  try {
+    await api('DELETE', `/api/playlists/${id}`);
+    showToast(i18nT('toast.teacher.playlistDeleted'), 'info');
+    await loadPlaylists();
+  } catch(e) {
+    showToast(i18nT('toast.admin.deleteErrorShort'), 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+// УРОКИ
+// ─────────────────────────────────────────────
+function openLessonModal(playlistId, lessonId = null) {
+  document.getElementById('lessonPlaylistId').value = playlistId;
+  document.getElementById('lessonId').value          = lessonId || '';
+  clearFile('file2d','drop2d','sel2d');
+  clearFile('fileVR','dropVR','selVR');
+  clearFile('fileMat','dropMat','selMat');
+  document.getElementById('uploadProgressWrap').classList.add('hidden');
+  ['existing2d','existingVR','existingMat'].forEach(id => document.getElementById(id).classList.add('hidden'));
+
+  let lesson = null;
+  if (lessonId) {
+    const pl = allPlaylists.find(p => p.id === playlistId);
+    lesson = pl && pl.lessons ? pl.lessons.find(l => l.id === lessonId) : null;
+  }
+
+  document.getElementById('lessonTitle').value    = lesson ? lesson.title : '';
+  document.getElementById('lessonDesc').value     = lesson ? (lesson.description || '') : '';
+  document.getElementById('lessonDeadline').value = lesson && lesson.deadline
+    ? new Date(lesson.deadline).toISOString().slice(0,16) : '';
+
+  document.getElementById('lessonModalTitle').textContent = lesson ? 'Редактировать урок' : 'Добавить урок';
+  document.getElementById('lessonSaveBtnLabel').textContent = lesson ? 'Сохранить изменения' : 'Загрузить урок';
+
+  if (lesson) {
+    if (lesson.video_2d_path)  document.getElementById('existing2d').classList.remove('hidden');
+    if (lesson.video_vr_path)  document.getElementById('existingVR').classList.remove('hidden');
+    if (lesson.material_path)  document.getElementById('existingMat').classList.remove('hidden');
+  }
+
+  openModal('lessonModal');
+  setTimeout(() => document.getElementById('lessonTitle').focus(), 100);
+}
+
+async function saveLesson() {
+  const playlistId = document.getElementById('lessonPlaylistId').value;
+  const lessonId    = document.getElementById('lessonId').value;
+  const title      = document.getElementById('lessonTitle').value.trim();
+  const desc       = document.getElementById('lessonDesc').value.trim();
+  const deadline   = document.getElementById('lessonDeadline').value; // datetime-local, напр. 2026-05-20T18:00
+  if (!title) { showToast(i18nT('toast.teacher.enterLessonName'), 'error'); return; }
+
+  const fd = new FormData();
+  fd.append('playlist_id',  playlistId);
+  fd.append('title',        title);
+  fd.append('description',  desc);
+  if (lessonId) {
+    // При редактировании: пустой срок означает "снять срок", а не "не менять"
+    if (deadline) fd.append('deadline', deadline);
+    else fd.append('clear_deadline', 'true');
+  } else if (deadline) {
+    fd.append('deadline', deadline);
+  }
+
+  const f2d  = document.getElementById('file2d').files[0];
+  const fVR  = document.getElementById('fileVR').files[0];
+  const fMat = document.getElementById('fileMat').files[0];
+  if (f2d)  fd.append('video_2d',  f2d);
+  if (fVR)  fd.append('video_vr',  fVR);
+  if (fMat) fd.append('material',  fMat);
+
+  const btn  = document.getElementById('lessonSaveBtn');
+  const prog = document.getElementById('uploadProgressWrap');
+  const bar  = document.getElementById('uploadProgressBar');
+  const lbl  = document.getElementById('uploadProgressLabel');
+
+  btn.disabled  = true;
+  btn.innerHTML = `<span class="spinner"></span> ${lessonId ? 'Сохраняем...' : 'Загружаем...'}`;
+  prog.classList.remove('hidden');
+
+  try {
+    const res = lessonId
+      ? await uploadWithProgress(fd, pct => {
+          bar.style.width  = pct + '%';
+          lbl.textContent  = `Загрузка файлов: ${pct}%`;
+        }, 'PUT', `/api/lessons/${lessonId}`)
+      : await uploadWithProgress(fd, pct => {
+          bar.style.width  = pct + '%';
+          lbl.textContent  = `Загрузка файлов: ${pct}%`;
+        });
+    if (res.error) { showToast(res.error, 'error'); return; }
+    closeModal('lessonModal');
+    showToast(lessonId ? 'Урок обновлён' : 'Урок успешно добавлен');
+    await loadPlaylists();
+  } catch(e) {
+    showToast(i18nT('toast.teacher.loadFilesError'), 'error');
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> <span id="lessonSaveBtnLabel">${lessonId ? 'Сохранить изменения' : 'Загрузить урок'}</span>`;
+    prog.classList.add('hidden');
+    bar.style.width = '0%';
+  }
+}
+
+async function deleteLesson(lessonId, playlistId) {
+  if (!confirm('Удалить этот урок?')) return;
+  try {
+    await api('DELETE', `/api/lessons/${lessonId}`);
+    showToast(i18nT('toast.teacher.lessonDeleted'), 'info');
+    await loadPlaylists();
+  } catch(e) {
+    showToast(i18nT('toast.admin.genericError'), 'error');
+  }
+}
+
+// Быстрая установка/изменение/снятие срока прохождения урока
+async function setLessonDeadline(lessonId, currentDeadline) {
+  const currentLocal = currentDeadline ? new Date(currentDeadline).toISOString().slice(0,16) : '';
+  const input = prompt(
+    'Срок прохождения урока в формате ГГГГ-ММ-ДДTЧЧ:ММ (например 2026-05-20T18:00).\n' +
+    'Оставьте поле пустым, чтобы убрать срок (доступ станет неограниченным).',
+    currentLocal
+  );
+  if (input === null) return; // отмена
+
+  try {
+    if (input.trim() === '') {
+      await api('PUT', `/api/lessons/${lessonId}`, { clear_deadline: true });
+      showToast(i18nT('toast.teacher.deadlineRemoved'), 'success');
+    } else {
+      if (isNaN(new Date(input).getTime())) {
+        showToast(i18nT('toast.teacher.invalidDateFormat'), 'error');
+        return;
+      }
+      await api('PUT', `/api/lessons/${lessonId}`, { deadline: input });
+      showToast(i18nT('toast.teacher.deadlineUpdated'), 'success');
+    }
+    await loadPlaylists();
+  } catch (e) {
+    showToast(i18nT('toast.teacher.updateDeadlineFailed'), 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+// DRAG AND DROP ФАЙЛЫ
+// ─────────────────────────────────────────────
+function onDragOver(e, zoneId) {
+  e.preventDefault();
+  document.getElementById(zoneId).classList.add('drag-over');
+}
+
+function onDragLeave(zoneId) {
+  document.getElementById(zoneId).classList.remove('drag-over');
+}
+
+function onDrop(e, inputId, zoneId) {
+  e.preventDefault();
+  onDragLeave(zoneId);
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const input = document.getElementById(inputId);
+  const dt    = new DataTransfer();
+  dt.items.add(file);
+  input.files = dt.files;
+  input.dispatchEvent(new Event('change'));
+}
+
+function onFileSelected(inputId, zoneId, selId) {
+  const file  = document.getElementById(inputId).files[0];
+  if (!file) return;
+  const zone  = document.getElementById(zoneId);
+  const sel   = document.getElementById(selId);
+  const name  = document.getElementById(`${selId}-name`);
+  zone.style.display = 'none';
+  sel.classList.remove('hidden');
+  name.textContent   = file.name;
+}
+
+function clearFile(inputId, zoneId, selId) {
+  document.getElementById(inputId).value = '';
+  document.getElementById(zoneId).style.display = '';
+  document.getElementById(selId).classList.add('hidden');
+}
+
+// ─────────────────────────────────────────────
+// ПРОВЕРКА Д/З
+// ─────────────────────────────────────────────
+function fillHWSelects() {
+  const plSel = document.getElementById('hwPlaylistSelect');
+  plSel.innerHTML = '<option value="">— Выберите плейлист —</option>' +
+    allPlaylists.map(pl => `<option value="${pl.id}">${pl.title}</option>`).join('');
+  document.getElementById('hwLessonSelect').innerHTML =
+    '<option value="">— Выберите урок —</option>';
+  document.getElementById('hwLessonSelect').disabled = true;
+}
+
+function onHWPlaylistChange() {
+  const plId    = document.getElementById('hwPlaylistSelect').value;
+  const lSel    = document.getElementById('hwLessonSelect');
+  const pl      = allPlaylists.find(p => p.id == plId);
+  lSel.disabled = !pl;
+  lSel.innerHTML = '<option value="">— Выберите урок —</option>' +
+    (pl ? pl.lessons.map(l =>
+      `<option value="${l.id}">${l.title}</option>`).join('') : '');
+  document.getElementById('homeworkList').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-state-icon">📋</div>
+      <h3>Выберите урок</h3>
+    </div>`;
+}
+
+async function loadHomework() {
+  const lessonId = document.getElementById('hwLessonSelect').value;
+  if (!lessonId) return;
+  const list = document.getElementById('homeworkList');
+  list.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  try {
+    const submissions = await api('GET', `/api/homework/lesson/${lessonId}`);
+    if (!submissions.length) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <h3><span data-i18n="t.noWorksYet">Работ пока нет</span></h3>
+          <p><span data-i18n="t.studentsHaventSubmitted">Студенты ещё не сдали домашнее задание по этому уроку</span></p>
+        </div>`;
+      return;
+    }
+    list.innerHTML = submissions.map(s => {
+      const graded = s.grade !== null;
+      const isAiPending = s.graded_by === 'ai' && !s.teacher_overridden;
+      const date   = new Date(s.submitted_at).toLocaleDateString('ru-RU', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+      return `
+        <div class="hw-card ${graded ? 'graded' : ''}" id="hw-${s.id}">
+          <div class="hw-student-avatar">
+            ${(s.student_name || '?').charAt(0).toUpperCase()}
+          </div>
+          <div class="hw-info">
+            <div class="hw-student-name">${s.student_name}</div>
+            <div class="hw-meta">Сдано: ${date}</div>
+            ${s.graded_by === 'pending' ? `<div class="hw-meta mt-8">⏳ Проверяется (ИИ не смог прочитать файл — нужна ручная проверка)</div>` : ''}
+            ${s.ai_feedback ? `<div class="hw-meta mt-8">🤖 ИИ: «${s.ai_feedback}»${isAiPending ? ' — <b><span data-i18n="t.preliminary">предварительно</span></b>, можно изменить' : ''}</div>` : ''}
+            ${s.comment && s.graded_by === 'teacher' ? `<div class="hw-meta mt-8">💬 ${s.comment}</div>` : ''}
+          </div>
+          <a href="${s.file_path}" target="_blank"
+             class="btn btn-ghost btn-sm">
+            📥 Скачать
+          </a>
+          <button type="button" class="btn btn-ghost btn-sm"
+                  onclick="openDocumentReader('${s.file_path}', {title: 'Работа — ${(s.student_name || '').replace(/'/g, "\\'")}'})">
+            👁 Читать
+          </button>
+          ${graded
+            ? `<div class="grade-badge ${gradeColorClass(s.grade)}">${s.grade}</div>
+               <button class="btn btn-ghost btn-sm" onclick="showOverrideInput(${s.id})" title="Изменить оценку">✏️</button>
+               <div class="grade-input-wrap hidden" id="override-${s.id}">
+                 <input type="number" class="grade-input" min="0" max="100" placeholder="0-100" id="gi-${s.id}">
+                 <button class="btn btn-success btn-sm" onclick="gradeHomework(${s.id})"><span data-i18n="common.save">Сохранить</span></button>
+               </div>`
+            : `<div class="grade-input-wrap">
+                 <input type="number" class="grade-input" min="0" max="100"
+                        placeholder="0-100" id="gi-${s.id}">
+                 <button class="btn btn-success btn-sm"
+                         onclick="gradeHomework(${s.id})">
+                   Оценить
+                 </button>
+               </div>`
+          }
+        </div>`;
+    }).join('');
+  } catch(e) {
+    showToast(i18nT('toast.teacher.loadWorksError'), 'error');
+  }
+}
+
+function showOverrideInput(hwId) {
+  document.getElementById(`override-${hwId}`).classList.toggle('hidden');
+}
+
+async function gradeHomework(hwId) {
+  const input = document.getElementById(`gi-${hwId}`);
+  const grade = parseInt(input.value);
+  if (isNaN(grade) || grade < 0 || grade > 100) {
+    showToast(i18nT('toast.teacher.enterGrade0to100'), 'error');
+    return;
+  }
+  try {
+    const res = await api('PUT', `/api/homework/${hwId}/grade`, { grade });
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast(i18nT('toast.teacher.gradeSetAndAdded'));
+    loadHomework();
+  } catch(e) {
+    showToast(i18nT('toast.teacher.gradingError'), 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+// ТЕСТЫ
+// ─────────────────────────────────────────────
+async function loadQuizzes() {
+  try {
+    const quizzes = await api('GET', '/api/quizzes');
+    const grid    = document.getElementById('quizzesGrid');
+    if (!quizzes.length) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📝</div>
+          <h3><span data-i18n="t.noTestsYet">Тестов пока нет</span></h3>
+          <p><span data-i18n="t.createFirstTest">Создайте первый тест для студентов</span></p>
+        </div>`;
+      return;
+    }
+    grid.innerHTML = quizzes.map((q, i) => `
+      <div class="card card-clickable animate-fadeInUp delay-${Math.min(i+1,4)}"
+           style="margin-bottom:12px">
+        <div class="card-header">
+          <span style="font-size:1.4rem">📝</span>
+          <div class="card-title">${q.title}</div>
+        </div>
+        <div class="text-sm text-muted mb-12">
+          ${q.question_count} вопрос(ов) · Создан ${new Date(q.created_at)
+            .toLocaleDateString('ru-RU')}
+          · Лимит попыток: ${q.max_attempts ? q.max_attempts : 'не ограничен'}
+        </div>
+        <div class="flex gap-8">
+          <button class="btn btn-ghost btn-sm"
+                  onclick="showQuizResults(${q.id},'${q.title.replace(/'/g,"\\'")}')">
+            📊 Результаты
+          </button>
+          <button class="btn btn-ghost btn-sm"
+                  onclick="editQuizAttemptsLimit(${q.id}, ${q.max_attempts || 'null'})" title="Изменить лимит попыток">
+            🔁 Лимит попыток
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteQuiz(${q.id})">
+            Удалить
+          </button>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    showToast(i18nT('toast.teacher.loadTestsError'), 'error');
+  }
+}
+
+// ─── КОНСТРУКТОР ТЕСТОВ ───
+let quizBuilderLessonId = null;
+let quizBuilderLessonTitle = null;
+
+async function showQuizBuilder(lessonId = null, lessonTitle = null) {
+  quizBuilderLessonId = lessonId;
+  quizBuilderLessonTitle = lessonTitle;
+  questions = [];
+  document.getElementById('quizTitle').value = lessonId ? `Тест: ${lessonTitle || ''}` : '';
+  document.getElementById('quizMaxAttempts').value = '';
+  document.getElementById('quizControlType').value = 'lesson';
+  document.getElementById('quizPlaylistWrap').classList.add('hidden');
+  document.getElementById('quizControlType').closest('.form-group').classList.toggle('hidden', !!lessonId);
+  if (!allPlaylists.length) allPlaylists = await api('GET', '/api/playlists');
+  const plSel = document.getElementById('quizPlaylistSelect');
+  plSel.innerHTML = (allPlaylists || []).map(p =>
+    `<option value="${p.id}">${escapeHtmlT(p.title)}</option>`).join('');
+  document.getElementById('questionsList').innerHTML = '';
+  document.getElementById('quizzesList-view').classList.add('hidden');
+  document.getElementById('quizBuilder-view').classList.remove('hidden');
+  addQuestion();
+}
+
+function onQuizControlTypeChange() {
+  const isExam = document.getElementById('quizControlType').value !== 'lesson';
+  document.getElementById('quizPlaylistWrap').classList.toggle('hidden', !isExam);
+}
+
+function hideQuizBuilder() {
+  quizBuilderLessonId = null;
+  quizBuilderLessonTitle = null;
+  document.getElementById('quizControlType').closest('.form-group').classList.remove('hidden');
+  document.getElementById('quizBuilder-view').classList.add('hidden');
+  document.getElementById('quizzesList-view').classList.remove('hidden');
+}
+
+function addQuestion() {
+  questions.push({
+    text: '', imageFile: null, multiple: false,
+    options: [
+      { text: '', imageFile: null, correct: false },
+      { text: '', imageFile: null, correct: false }
+    ]
+  });
+  renderAllQuestions();
+}
+
+// Полная перерисовка списка вопросов. Нужна при любом добавлении/удалении
+// вопроса или варианта ответа, т.к. индексы в массиве questions сдвигаются
+// (splice), а DOM-элементы со старыми id иначе "рассинхронизируются" —
+// значения текста/картинок/чекбоксов начинают относиться не к тем полям.
+function renderAllQuestions() {
+  const list = document.getElementById('questionsList');
+  list.innerHTML = '';
+  questions.forEach((q, idx) => {
+    renderQuestion(idx);
+    renderQuestionOptions(idx);
+  });
+}
+
+function renderQuestion(idx) {
+  const q    = questions[idx];
+  const list = document.getElementById('questionsList');
+  const div  = document.createElement('div');
+  div.className   = 'question-block';
+  div.draggable   = true;
+  div.id          = `qblock-${idx}`;
+  div.ondragstart = () => div.classList.add('dragging');
+  div.ondragend   = () => div.classList.remove('dragging');
+  div.ondragover  = e => { e.preventDefault(); div.classList.add('drag-over'); };
+  div.ondragleave = () => div.classList.remove('drag-over');
+  div.ondrop      = e => {
+    e.preventDefault();
+    div.classList.remove('drag-over');
+  };
+  div.innerHTML = `
+    <div class="question-header">
+      <span class="drag-handle">⠿</span>
+      <span class="question-num">Вопрос ${idx + 1}</span>
+      <div class="toggle-wrap" style="margin-left:auto">
+        <span class="text-sm text-muted"><span data-i18n="t.multipleAnswers">Несколько ответов</span></span>
+        <button class="toggle ${q.multiple ? 'on' : ''}"
+                id="toggle-${idx}"
+                onclick="toggleMultiple(${idx})"></button>
+      </div>
+      <button class="btn-icon" style="color:var(--red)"
+              onclick="removeQuestion(${idx})">✕</button>
+    </div>
+
+    <div class="form-group">
+      <input type="text" placeholder="Текст вопроса..." data-i18n-placeholder="ph.questionText"
+             id="qtext-${idx}" value="${q.text}"
+             oninput="questions[${idx}].text = this.value">
+    </div>
+
+    <div class="form-group">
+      <label class="text-sm text-muted"><span data-i18n="t.questionImageOptional">Изображение к вопросу (необязательно)</span></label>
+      <div class="file-drop-zone compact" id="qimgDrop-${idx}"
+           ondragover="onDragOver(event,'qimgDrop-${idx}')"
+           ondragleave="onDragLeave('qimgDrop-${idx}')"
+           ondrop="onDrop(event,'qimg-${idx}','qimgDrop-${idx}')">
+        <input type="file" accept="image/*" id="qimg-${idx}"
+               onchange="onQImgSelected(${idx}, this)">
+        <span class="drop-icon">🖼️</span>
+        <div>
+          <div class="drop-title"><span data-i18n="t.dragImageToQuestion">Перетащите картинку или нажмите для выбора</span></div>
+          <div class="drop-hint">JPG, PNG, GIF, WEBP</div>
+        </div>
+      </div>
+      <div id="qimg-preview-${idx}" style="margin-top:8px"></div>
+    </div>
+
+    <div id="options-${idx}"></div>
+
+    <button class="btn btn-ghost btn-sm" onclick="addOption(${idx})"
+            style="margin-top:4px">
+      + Добавить вариант
+    </button>`;
+  list.appendChild(div);
+
+  // Восстанавливаем превью картинки вопроса после перерисовки (если уже была выбрана)
+  if (q.imageFile) {
+    const preview = document.getElementById(`qimg-preview-${idx}`);
+    preview.innerHTML = `<img src="${URL.createObjectURL(q.imageFile)}" style="max-height:120px;border-radius:var(--radius)">`;
+  }
+}
+
+function toggleMultiple(idx) {
+  questions[idx].multiple = !questions[idx].multiple;
+  const btn = document.getElementById(`toggle-${idx}`);
+  btn.classList.toggle('on', questions[idx].multiple);
+}
+
+function onQImgSelected(idx, input) {
+  const file    = input.files[0];
+  if (!file) return;
+  questions[idx].imageFile = file;
+  const preview = document.getElementById(`qimg-preview-${idx}`);
+  const url     = URL.createObjectURL(file);
+  preview.innerHTML = `<img src="${url}" style="max-height:120px;border-radius:var(--radius)">`;
+}
+
+function addOption(qIdx) {
+  questions[qIdx].options.push({ text: '', imageFile: null, correct: false });
+  renderQuestionOptions(qIdx);
+}
+
+// Перерисовывает варианты ответа ОДНОГО вопроса с индексами, соответствующими
+// текущему состоянию массива questions[qIdx].options (после add/remove)
+function renderQuestionOptions(qIdx) {
+  const container = document.getElementById(`options-${qIdx}`);
+  if (!container) return;
+  container.innerHTML = '';
+  questions[qIdx].options.forEach((o, oIdx) => renderOption(qIdx, oIdx));
+}
+
+function renderOption(qIdx, oIdx) {
+  const o         = questions[qIdx].options[oIdx];
+  const container = document.getElementById(`options-${qIdx}`);
+  const row       = document.createElement('div');
+  row.className   = 'option-row' + (o.correct ? ' is-correct' : '');
+  row.id          = `opt-${qIdx}-${oIdx}`;
+  row.innerHTML   = `
+    <input type="checkbox" class="option-correct-cb"
+           id="ocb-${qIdx}-${oIdx}" ${o.correct ? 'checked' : ''}
+           onchange="toggleOptionCorrect(${qIdx},${oIdx},this.checked)">
+    <input type="text" style="flex:1" placeholder="Вариант ответа..." data-i18n-placeholder="ph.answerOption"
+           id="otext-${qIdx}-${oIdx}" value="${o.text}"
+           oninput="questions[${qIdx}].options[${oIdx}].text = this.value">
+    <input type="file" accept="image/*" style="display:none"
+           id="oimg-${qIdx}-${oIdx}"
+           onchange="onOImgSelected(${qIdx},${oIdx},this)">
+    <label for="oimg-${qIdx}-${oIdx}" class="btn btn-ghost btn-sm"
+           style="cursor:pointer;margin:0">🖼</label>
+    <div id="oimg-preview-${qIdx}-${oIdx}"></div>
+    <button class="btn-icon" style="color:var(--red);flex-shrink:0"
+            onclick="removeOption(${qIdx},${oIdx})">✕</button>`;
+  container.appendChild(row);
+
+  // Восстанавливаем превью картинки варианта после перерисовки (если уже была выбрана)
+  if (o.imageFile) {
+    const preview = document.getElementById(`oimg-preview-${qIdx}-${oIdx}`);
+    preview.innerHTML = `<img src="${URL.createObjectURL(o.imageFile)}" class="option-img-preview">`;
+  }
+}
+
+function toggleOptionCorrect(qIdx, oIdx, checked) {
+  questions[qIdx].options[oIdx].correct = checked;
+  const row = document.getElementById(`opt-${qIdx}-${oIdx}`);
+  row.classList.toggle('is-correct', checked);
+}
+
+function onOImgSelected(qIdx, oIdx, input) {
+  const file = input.files[0];
+  if (!file) return;
+  questions[qIdx].options[oIdx].imageFile = file;
+  const preview = document.getElementById(`oimg-preview-${qIdx}-${oIdx}`);
+  preview.innerHTML = `
+    <img src="${URL.createObjectURL(file)}"
+         class="option-img-preview">`;
+}
+
+function removeOption(qIdx, oIdx) {
+  questions[qIdx].options.splice(oIdx, 1);
+  renderQuestionOptions(qIdx);
+}
+
+function removeQuestion(idx) {
+  questions.splice(idx, 1);
+  renderAllQuestions();
+}
+
+async function saveQuiz() {
+  const title = document.getElementById('quizTitle').value.trim();
+  if (!title) { showToast(i18nT('toast.teacher.enterTestName'), 'error'); return; }
+  if (!questions.length) { showToast(i18nT('toast.teacher.addAtLeastOneQuestion'), 'error'); return; }
+
+  const controlType = quizBuilderLessonId ? 'lesson' : document.getElementById('quizControlType').value;
+  const playlistId  = document.getElementById('quizPlaylistSelect').value;
+  if (!quizBuilderLessonId && controlType !== 'lesson' && !playlistId) {
+    showToast(i18nT('toast.teacher.selectCourseForExam'), 'error');
+    return;
+  }
+
+  const maxAttemptsVal = document.getElementById('quizMaxAttempts').value.trim();
+  if (maxAttemptsVal && (parseInt(maxAttemptsVal) < 1 || !Number.isInteger(Number(maxAttemptsVal)))) {
+    showToast(i18nT('toast.teacher.attemptLimitInteger'), 'error');
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append('title', title);
+  fd.append('control_type', controlType);
+  if (maxAttemptsVal) fd.append('max_attempts', maxAttemptsVal);
+  if (quizBuilderLessonId) {
+    fd.append('lesson_id', quizBuilderLessonId);
+  } else if (controlType !== 'lesson') {
+    fd.append('playlist_id', playlistId);
+  }
+
+  const qData = questions.map((q, qi) => {
+    if (q.imageFile) fd.append(`question_image_${qi}`, q.imageFile);
+    return {
+      question_text:    document.getElementById(`qtext-${qi}`)?.value || q.text,
+      multiple_correct: q.multiple,
+      options: q.options.map((o, oi) => {
+        const tEl = document.getElementById(`otext-${qi}-${oi}`);
+        const cEl = document.getElementById(`ocb-${qi}-${oi}`);
+        if (o.imageFile) fd.append(`option_image_${qi}_${oi}`, o.imageFile);
+        return {
+          option_text: tEl ? tEl.value : o.text,
+          is_correct:  cEl ? cEl.checked : o.correct
+        };
+      })
+    };
+  });
+
+  fd.append('questions', JSON.stringify(qData));
+
+  const btn = document.getElementById('saveQuizBtn');
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner"></span> Сохраняем...';
+
+  try {
+    const res = await fetch('/api/quizzes', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body:    fd
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+    showToast(i18nT('toast.teacher.testCreated'));
+    const wasLessonQuiz = !!quizBuilderLessonId;
+    hideQuizBuilder();
+    await loadQuizzes();
+    if (wasLessonQuiz) {
+      showSection('playlists');
+      loadPlaylists();
+    }
+  } catch(e) {
+    showToast(i18nT('toast.teacher.saveTestError'), 'error');
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = '💾 Сохранить тест';
+  }
+}
+
+// Быстрое изменение лимита попыток сдачи уже созданного теста
+async function editQuizAttemptsLimit(quizId, currentMax) {
+  const input = prompt(
+    'Максимальное число попыток сдачи этого теста.\nОставьте поле пустым, чтобы снять ограничение.',
+    currentMax || ''
+  );
+  if (input === null) return; // отмена
+  const trimmed = input.trim();
+  if (trimmed && (!/^\d+$/.test(trimmed) || parseInt(trimmed) < 1)) {
+    showToast(i18nT('toast.teacher.enterIntegerMin1'), 'error');
+    return;
+  }
+  try {
+    const res = await api('PUT', `/api/quizzes/${quizId}`, { max_attempts: trimmed ? parseInt(trimmed) : null });
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast(trimmed ? `Лимит попыток установлен: ${trimmed}` : 'Ограничение по попыткам снято');
+    await loadQuizzes();
+  } catch (e) {
+    showToast(i18nT('toast.teacher.networkError'), 'error');
+  }
+}
+
+async function deleteQuiz(id) {
+  if (!confirm('Удалить этот тест?')) return;
+  await api('DELETE', `/api/quizzes/${id}`);
+  showToast(i18nT('toast.teacher.testDeleted'), 'info');
+  await loadQuizzes();
+}
+
+async function showQuizResults(id, title) {
+  document.getElementById('quizzesList-view').classList.add('hidden');
+  document.getElementById('quizResults-view').classList.remove('hidden');
+  document.getElementById('quizResultsTitle').textContent = `Результаты: ${title}`;
+  const tbody = document.getElementById('quizResultsBody');
+  tbody.innerHTML = '<tr><td colspan="4"><div class="skeleton skeleton-text w-80"></div></td></tr>';
+  try {
+    const results = await api('GET', `/api/quizzes/${id}/results`);
+    if (!results.length) {
+      tbody.innerHTML = `<tr><td colspan="4">
+        <div class="empty-state"><p><span data-i18n="t.noOneCompletedTest">Никто ещё не прошёл этот тест</span></p></div>
+      </td></tr>`;
+      return;
+    }
+    tbody.innerHTML = results.map(r => `
+      <tr>
+        <td><strong>${r.student_name}</strong></td>
+        <td>${r.score} / ${r.total}</td>
+        <td>
+          <div class="flex items-center gap-8">
+            <div class="progress-bar" style="width:120px">
+              <div class="progress-bar-fill ${r.percent>=70?'green':r.percent>=50?'':'red'}"
+                   style="width:${r.percent}%"></div>
+            </div>
+            <span class="text-sm">${r.percent}%</span>
+          </div>
+        </td>
+        <td class="text-sm text-muted">
+          ${new Date(r.completed_at).toLocaleDateString('ru-RU')}
+        </td>
+      </tr>`).join('');
+  } catch(e) {
+    showToast(i18nT('toast.teacher.loadResultsError'), 'error');
+  }
+}
+
+function hideQuizResults() {
+  document.getElementById('quizResults-view').classList.add('hidden');
+  document.getElementById('quizzesList-view').classList.remove('hidden');
+}
+
+// ─── ТЕСТ К КОНКРЕТНОМУ УРОКУ (из карточки урока в плейлисте) ───
+let lessonQuizState = { lessonId: null, lessonTitle: null, playlistId: null, quiz: null };
+
+async function openLessonQuizModal(lessonId, lessonTitle, playlistId) {
+  lessonQuizState = { lessonId, lessonTitle, playlistId, quiz: null };
+  document.getElementById('lessonQuizLessonTitle').textContent = lessonTitle;
+  document.getElementById('lessonQuizLoading').classList.remove('hidden');
+  document.getElementById('lessonQuizExisting').classList.add('hidden');
+  document.getElementById('lessonQuizNone').classList.add('hidden');
+  document.getElementById('lessonQuizImportTitle').value = '';
+  document.getElementById('lessonQuizImportFile').value = '';
+  document.getElementById('lessonQuizImportDrop').style.display = '';
+  document.getElementById('lessonQuizImportSel').classList.add('hidden');
+  openModal('lessonQuizModal');
+
+  try {
+    const quizzes = await api('GET', `/api/quizzes?lesson_id=${lessonId}`);
+    document.getElementById('lessonQuizLoading').classList.add('hidden');
+    if (quizzes.length) {
+      lessonQuizState.quiz = quizzes[0];
+      document.getElementById('lessonQuizExistingTitle').textContent = quizzes[0].title;
+      document.getElementById('lessonQuizExistingCount').textContent =
+        `${quizzes[0].question_count} вопрос(ов) · Лимит попыток: ${quizzes[0].max_attempts ? quizzes[0].max_attempts : 'не ограничен'}`;
+      document.getElementById('lessonQuizExisting').classList.remove('hidden');
+    } else {
+      document.getElementById('lessonQuizNone').classList.remove('hidden');
+    }
+  } catch (e) {
+    document.getElementById('lessonQuizLoading').textContent = 'Не удалось загрузить статус теста';
+  }
+}
+
+async function editLessonQuizAttemptsLimit() {
+  if (!lessonQuizState.quiz) return;
+  await editQuizAttemptsLimit(lessonQuizState.quiz.id, lessonQuizState.quiz.max_attempts || null);
+  // Обновим отображение лимита в открытой модалке
+  const quizzes = await api('GET', `/api/quizzes?lesson_id=${lessonQuizState.lessonId}`);
+  if (quizzes.length) {
+    lessonQuizState.quiz = quizzes[0];
+    document.getElementById('lessonQuizExistingCount').textContent =
+      `${quizzes[0].question_count} вопрос(ов) · Лимит попыток: ${quizzes[0].max_attempts ? quizzes[0].max_attempts : 'не ограничен'}`;
+  }
+}
+
+function createLessonQuizManually() {
+  const { lessonId, lessonTitle } = lessonQuizState;
+  closeModal('lessonQuizModal');
+  showSection('quizzes');
+  showQuizBuilder(lessonId, lessonTitle);
+}
+
+function downloadQuizImportTemplate(e) {
+  e.preventDefault();
+  const a = document.createElement('a');
+  a.href = '/api/quizzes/import-template';
+  // Ссылка требует авторизации — скачиваем через fetch и подставляем blob
+  fetch('/api/quizzes/import-template', { headers: { 'Authorization': `Bearer ${token}` } })
+    .then(res => res.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = 'shablon_importa_testa.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    })
+    .catch(() => showToast(i18nT('toast.admin.templateDownloadFailed'), 'error'));
+}
+
+async function submitLessonQuizImport() {
+  const title = document.getElementById('lessonQuizImportTitle').value.trim();
+  const fileInput = document.getElementById('lessonQuizImportFile');
+  if (!title) { showToast(i18nT('toast.teacher.specifyTestName'), 'error'); return; }
+  if (!fileInput.files[0]) { showToast(i18nT('toast.teacher.selectQuestionsFile'), 'error'); return; }
+
+  const btn = document.getElementById('lessonQuizImportBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Импортируем...';
+
+  const fd = new FormData();
+  fd.append('title', title);
+  fd.append('lesson_id', lessonQuizState.lessonId);
+  fd.append('file', fileInput.files[0]);
+
+  try {
+    const res = await fetch('/api/quizzes/import', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: fd
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Ошибка импорта', 'error'); return; }
+    let msg = `Тест создан: ${data.question_count} вопрос(ов)`;
+    if (data.skipped) msg += `, пропущено строк с ошибками: ${data.skipped}`;
+    showToast(msg);
+    closeModal('lessonQuizModal');
+    loadPlaylists();
+  } catch (e) {
+    showToast(i18nT('toast.teacher.importTestError'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Импортировать и создать тест';
+  }
+}
+
+function viewLessonQuizResults() {
+  const quiz = lessonQuizState.quiz;
+  if (!quiz) return;
+  closeModal('lessonQuizModal');
+  showSection('quizzes');
+  showQuizResults(quiz.id, quiz.title);
+}
+
+async function deleteLessonQuiz() {
+  const quiz = lessonQuizState.quiz;
+  if (!quiz) return;
+  if (!confirm('Удалить тест этого урока? Результаты студентов будут потеряны.')) return;
+  try {
+    await api('DELETE', `/api/quizzes/${quiz.id}`);
+    showToast(i18nT('toast.teacher.testDeleted'), 'info');
+    closeModal('lessonQuizModal');
+    loadPlaylists();
+  } catch (e) {
+    showToast(i18nT('toast.teacher.deleteTestError'), 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+// ЖУРНАЛ ОЦЕНОК
+// ─────────────────────────────────────────────
+function gradeColorClass(value) {
+  if (value >= 85) return 'grade-5';
+  if (value >= 70) return 'grade-4';
+  if (value >= 50) return 'grade-3';
+  return 'grade-2';
+}
+function controlTypeLabel(ct) {
+  return { weekly: 'Недельная', checkpoint1: 'Рубежка 1', checkpoint2: 'Рубежка 2', session: 'Сессия' }[ct] || ct;
+}
+function gradedByLabel(gb) {
+  return { ai: '🤖 ИИ', teacher: '👤 Учитель', auto: '⚙️ Авто', pending: '⏳ Ожидает' }[gb] || '';
+}
+
+async function loadAllStudentsForGrades() {
+  try {
+    // Загружаем всех пользователей (теперь teacher тоже может)
+    const users = await api('GET', '/api/users');
+    allStudents = users.filter(u => u.role === 'student');
+
+    const sel = document.getElementById('gradeStudentSelect');
+    if (!allStudents.length) {
+      sel.innerHTML = '<option value="">— Студентов нет —</option>';
+      document.getElementById('gradesContent').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">👥</div>
+          <h3><span data-i18n="t.noStudents">Студентов нет</span></h3>
+          <p><span data-i18n="t.askAdminToAddStudents">Попросите администратора добавить студентов в систему</span></p>
+        </div>`;
+      return;
+    }
+
+    sel.innerHTML = '<option value="">— Выберите студента —</option>' +
+      allStudents.map(s =>
+        `<option value="${s.id}">${s.full_name || s.username} (@${s.username})</option>`
+      ).join('');
+
+    // Обновляем select в модалке добавления оценки тоже
+    const agSel = document.getElementById('agStudent');
+    if (agSel) {
+      agSel.innerHTML = allStudents.map(s =>
+        `<option value="${s.id}">${s.full_name || s.username}</option>`
+      ).join('');
+    }
+
+  } catch(e) {
+    showToast(i18nT('toast.teacher.loadStudentsErrorPrefix') + e.message, 'error');
+  }
+}
+
+async function loadStudentGrades() {
+  const studentId = document.getElementById('gradeStudentSelect').value;
+  if (!studentId) return;
+  const content = document.getElementById('gradesContent');
+  content.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  try {
+    const grades = await api('GET', `/api/grades/student/${studentId}`);
+    if (!grades.length) {
+      content.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📊</div>
+          <h3><span data-i18n="t.noGradesYet">Оценок пока нет</span></h3>
+          <p><span data-i18n="t.studentHasNoGradesYet">У этого студента ещё нет оценок</span></p>
+        </div>`;
+      return;
+    }
+    const avg = (grades.reduce((s,g) => s + g.value, 0) / grades.length).toFixed(1);
+    content.innerHTML = `
+      <div class="grades-summary mb-16">
+        <div>
+          <div class="avg-grade">${avg}</div>
+          <div class="avg-label">Средний балл (из 100)</div>
+        </div>
+        <div style="height:50px;width:1px;background:var(--border)"></div>
+        <div>
+          <div class="avg-grade" style="font-size:1.75rem">${grades.length}</div>
+          <div class="avg-label"><span data-i18n="t.totalGrades">Всего оценок</span></div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span data-i18n="common.lessonTopic">Урок / Тема</span></th>
+              <th><span data-i18n="common.type">Тип</span></th>
+              <th><span data-i18n="common.grade">Оценка</span></th>
+              <th><span data-i18n="common.gradedBy">Кто выставил</span></th>
+              <th><span data-i18n="common.comment">Комментарий</span></th>
+              <th><span data-i18n="common.date">Дата</span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${grades.map(g => `
+              <tr id="grade-row-${g.id}">
+                <td>${g.lesson_title || '—'}</td>
+                <td class="text-sm text-muted">${controlTypeLabel(g.control_type || 'weekly')}</td>
+                <td><div class="grade-badge ${gradeColorClass(g.value)}">${g.value}</div>
+                  ${g.original_value !== null && g.original_value !== undefined && g.original_value !== g.value
+                    ? `<div class="text-sm text-muted" style="margin-top:2px">было: ${g.original_value}</div>` : ''}
+                </td>
+                <td class="text-sm text-muted">${gradedByLabel(g.graded_by)}</td>
+                <td class="text-sm text-muted">${g.comment || '—'}</td>
+                <td class="text-sm text-muted">
+                  ${new Date(g.created_at).toLocaleDateString('ru-RU')}
+                </td>
+                <td>
+                  <button class="btn-icon" onclick="editGradeInline(${g.id}, ${g.value})" title="Изменить оценку">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                      <path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch(e) {
+    showToast(i18nT('toast.teacher.loadGradesError'), 'error');
+  }
+}
+
+async function editGradeInline(gradeId, currentValue) {
+  const val = prompt('Новая оценка (0–100):', currentValue);
+  if (val === null) return;
+  const num = parseInt(val);
+  if (isNaN(num) || num < 0 || num > 100) return showToast(i18nT('toast.teacher.enterNumber0to100'), 'error');
+  try {
+    const res = await api('PUT', `/api/grades/${gradeId}`, { value: num });
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast(i18nT('toast.teacher.gradeUpdated'));
+    await loadStudentGrades();
+  } catch (e) { showToast(i18nT('toast.admin.genericError'), 'error'); }
+}
+
+// ─────────────────────────────────────────────
+// 100-БАЛЛЬНЫЙ ЖУРНАЛ ГРУППЫ (рубежки/сессия)
+// ─────────────────────────────────────────────
+function showGradeTab(name) {
+  document.querySelectorAll('.grade-tab-btn').forEach(b => {
+    b.classList.remove('active');
+    b.style.color = 'var(--text2)'; b.style.borderColor = 'transparent';
+  });
+  const btn = document.getElementById(`gtab-${name}`);
+  btn.classList.add('active'); btn.style.color = 'var(--purple)'; btn.style.borderColor = 'var(--purple)';
+  document.getElementById('gradetab-single').classList.toggle('hidden', name !== 'single');
+  document.getElementById('gradetab-journal').classList.toggle('hidden', name !== 'journal');
+  document.getElementById('gradetab-performance').classList.toggle('hidden', name !== 'performance');
+  if (name === 'performance') fillPerfGroupSelect();
+}
+
+// ─────────────────────────────────────────────
+// AI-АССИСТЕНТ ДЛЯ УЧИТЕЛЯ
+// ─────────────────────────────────────────────
+function showAiTab(name) {
+  document.querySelectorAll('.ai-tab-btn').forEach(b => {
+    b.classList.remove('active');
+    b.style.color = 'var(--text2)'; b.style.borderColor = 'transparent';
+  });
+  const btn = document.getElementById(`aitab-${name}`);
+  btn.classList.add('active'); btn.style.color = 'var(--purple)'; btn.style.borderColor = 'var(--purple)';
+  ['plan', 'report', 'custom'].forEach(n =>
+    document.getElementById(`aitab-content-${n}`).classList.toggle('hidden', n !== name));
+  document.getElementById('aiHelperResult').innerHTML = '';
+}
+
+async function fillAiReportGroupSelect() {
+  const sel = document.getElementById('aiReportGroupSelect');
+  if (sel.dataset.filled) return;
+  const groups = await api('GET', '/api/groups');
+  sel.innerHTML = '<option value="">— Выберите группу —</option>' +
+    groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  sel.dataset.filled = '1';
+}
+
+function aiResultBox(text) {
+  return `<div class="card" style="padding:20px;white-space:pre-wrap;line-height:1.6">${escapeHtml(text)}</div>`;
+}
+
+async function aiRunRequest(btnId, body) {
+  const btn = document.getElementById(btnId);
+  const resultEl = document.getElementById('aiHelperResult');
+  btn.disabled = true; const oldLabel = btn.textContent;
+  btn.textContent = '⏳ Генерирую...';
+  resultEl.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  try {
+    const data = await api('POST', '/api/ai-assistant/teacher', body);
+    if (data.error) { resultEl.innerHTML = `<div class="empty-state"><p>${data.error}</p></div>`; return; }
+    resultEl.innerHTML = aiResultBox(data.answer);
+  } catch (e) {
+    resultEl.innerHTML = `<div class="empty-state"><p>Ошибка: ${e.message}</p></div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = oldLabel;
+  }
+}
+
+function aiGenerateLessonPlan() {
+  const topic = document.getElementById('aiPlanTopic').value.trim();
+  if (!topic) { showToast(i18nT('toast.teacher.specifyLessonTopic'), 'error'); return; }
+  const grade_level = document.getElementById('aiPlanLevel').value.trim();
+  const duration = document.getElementById('aiPlanDuration').value;
+  aiRunRequest('btnAiPlan', { action: 'lesson_plan', topic, grade_level, duration });
+}
+
+function aiGenerateGroupReport(groupIdArg) {
+  const group_id = groupIdArg || document.getElementById('aiReportGroupSelect').value;
+  if (!group_id) { showToast(i18nT('toast.teacher.selectGroup'), 'error'); return; }
+  if (groupIdArg) { showSection('ai-helper'); showAiTab('report'); fillAiReportGroupSelect().then(() => {
+    document.getElementById('aiReportGroupSelect').value = group_id;
+  }); }
+  aiRunRequest('btnAiReport', { action: 'report', group_id });
+}
+
+function aiGenerateGroupSummary() {
+  const group_id = document.getElementById('aiReportGroupSelect').value;
+  if (!group_id) { showToast(i18nT('toast.teacher.selectGroup'), 'error'); return; }
+  aiRunRequest('btnAiSummary', { action: 'summary', group_id });
+}
+
+function aiCustomRequest() {
+  const question = document.getElementById('aiCustomQuestion').value.trim();
+  if (!question) { showToast(i18nT('toast.teacher.describeTask'), 'error'); return; }
+  aiRunRequest('btnAiCustom', { action: 'custom', question });
+}
+
+async function fillPerfGroupSelect() {
+  const sel = document.getElementById('perfGroupSelect');
+  if (sel.dataset.filled) return;
+  const groups = await api('GET', '/api/groups');
+  sel.innerHTML = '<option value="">— Выберите группу —</option>' +
+    groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  sel.dataset.filled = '1';
+}
+
+function perfBar(pct, colorGood) {
+  if (pct === null || pct === undefined) return `<span class="text-muted text-sm"><span data-i18n="grp.noData">нет данных</span></span>`;
+  const color = pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
+  return `
+    <div class="flex items-center gap-8">
+      <div style="flex:1;min-width:80px;height:10px;background:var(--border);border-radius:6px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:6px"></div>
+      </div>
+      <span style="font-weight:700;color:${color};min-width:40px;text-align:right">${pct}%</span>
+    </div>`;
+}
+
+async function loadGroupPerformance() {
+  const groupId = document.getElementById('perfGroupSelect').value;
+  const el = document.getElementById('performanceView');
+  if (!groupId) return;
+  el.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  try {
+    const data = await api('GET', `/api/groups/${groupId}/performance`);
+    if (data.error) { el.innerHTML = `<div class="empty-state"><p>${data.error}</p></div>`; return; }
+    if (!data.students_count) { el.innerHTML = `<div class="empty-state"><p><span data-i18n="grp.noStudentsInGroup">В этой группе нет студентов</span></p></div>`; return; }
+
+    const atRisk = data.student_summary.filter(s =>
+      (s.overall_grade_pct !== null && s.overall_grade_pct < 60) ||
+      (s.overall_attendance_pct !== null && s.overall_attendance_pct < 70) ||
+      s.missed_deadlines_total > 0
+    );
+
+    el.innerHTML = `
+      <div class="grid grid-cols-3 gap-12 mb-20" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+        <div class="card" style="padding:16px">
+          <div class="text-muted text-sm"><span data-i18n="grp.avgGrade">Средний балл группы</span></div>
+          <div style="font-size:28px;font-weight:800;margin-top:4px">${data.group_avg_grade_pct ?? '—'}%</div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div class="text-muted text-sm"><span data-i18n="grp.avgAttendance">Средняя посещаемость</span></div>
+          <div style="font-size:28px;font-weight:800;margin-top:4px">${data.group_avg_attendance_pct ?? '—'}%</div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div class="text-muted text-sm"><span data-i18n="grp.coursesCount">Курсов у группы</span></div>
+          <div style="font-size:28px;font-weight:800;margin-top:4px">${data.courses_count}</div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div class="text-muted text-sm"><span data-i18n="grp.atRiskStudents">Студентов в зоне риска</span></div>
+          <div style="font-size:28px;font-weight:800;margin-top:4px;color:${atRisk.length ? '#ef4444' : '#22c55e'}">${atRisk.length}</div>
+        </div>
+      </div>
+
+      <h3 class="mb-12"><span data-i18n="grp.byStudents">По студентам</span></h3>
+      <div class="table-wrap mb-20">
+        <table>
+          <thead>
+            <tr><th><span data-i18n="common.student">Студент</span></th><th style="min-width:160px"><span data-i18n="common.avgGrade">Средний балл</span></th><th style="min-width:160px"><span data-i18n="common.attendance">Посещаемость</span></th><th><span data-i18n="common.missedByDeadline">Пропусков по дедлайну</span></th></tr>
+          </thead>
+          <tbody>
+            ${data.student_summary.map(s => `
+              <tr style="${((s.overall_grade_pct !== null && s.overall_grade_pct < 60) || (s.overall_attendance_pct !== null && s.overall_attendance_pct < 70)) ? 'background:rgba(239,68,68,0.06)' : ''}">
+                <td>${s.student.full_name || s.student.username}</td>
+                <td>${perfBar(s.overall_grade_pct)}</td>
+                <td>${perfBar(s.overall_attendance_pct)}</td>
+                <td>${s.missed_deadlines_total > 0 ? `<span class="journal-badge journal-badge-absence">${s.missed_deadlines_total}</span>` : '—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="mb-12"><span data-i18n="grp.byCourses">По курсам</span></h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th><span data-i18n="common.course">Курс</span></th><th><span data-i18n="common.teacher">Преподаватель</span></th><th><span data-i18n="common.lessonsCount">Уроков</span></th><th style="min-width:160px"><span data-i18n="grp.avgGradeShort">Ср. балл</span></th><th style="min-width:160px"><span data-i18n="common.attendance">Посещаемость</span></th></tr></thead>
+          <tbody>
+            ${data.courses.map(c => `
+              <tr>
+                <td>${c.playlist_title}</td>
+                <td>${c.teacher_name}</td>
+                <td>${c.lessons_total}</td>
+                <td>${perfBar(c.avg_grade_pct)}</td>
+                <td>${perfBar(c.avg_attendance_pct)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-end mt-20">
+        <button class="btn btn-primary" onclick="aiGenerateGroupReport(${groupId})">✨ Сформировать отчёт с ИИ-ассистентом</button>
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state"><p>Ошибка загрузки: ${e.message}</p></div>`;
+  }
+}
+
+async function fillJournalPlaylistSelect() {
+  if (!allPlaylists.length) allPlaylists = await api('GET', '/api/playlists');
+  const sel = document.getElementById('journalPlaylistSelect');
+  sel.innerHTML = '<option value="">— Выберите курс —</option>' +
+    allPlaylists.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+}
+
+async function onJournalPlaylistChange() {
+  const playlistId = document.getElementById('journalPlaylistSelect').value;
+  const groupSel = document.getElementById('journalGroupSelect');
+  if (!playlistId) { groupSel.disabled = true; groupSel.innerHTML = '<option value="">— Выберите группу —</option>'; return; }
+  const groups = await api('GET', '/api/groups');
+  groupSel.disabled = false;
+  groupSel.innerHTML = '<option value="">— Выберите группу —</option>' +
+    groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+}
+
+async function loadJournal() {
+  const playlistId = document.getElementById('journalPlaylistSelect').value;
+  const groupId = document.getElementById('journalGroupSelect').value;
+  const el = document.getElementById('journalView');
+  if (!playlistId || !groupId) return;
+  el.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  try {
+    const data = await api('GET', `/api/grades/journal?group_id=${groupId}&playlist_id=${playlistId}`);
+    if (data.error) { el.innerHTML = `<div class="empty-state"><p>${data.error}</p></div>`; return; }
+    const { lessons, exams, journal } = data;
+    if (!journal.length) { el.innerHTML = `<div class="empty-state"><p><span data-i18n="grp.noStudentsInGroup">В этой группе нет студентов</span></p></div>`; return; }
+
+    el.innerHTML = `
+      <div class="flex items-center justify-between mb-12" style="flex-wrap:wrap;gap:8px">
+        <div class="flex items-center gap-12" style="flex-wrap:wrap">
+          <span class="flex items-center gap-8 text-sm"><span class="journal-dot journal-dot-ok"></span><span data-i18n="t.passedOnTime">Пройден в срок</span></span>
+          <span class="flex items-center gap-8 text-sm"><span class="journal-dot journal-dot-progress"></span><span data-i18n="t.deadlineNotPassed">Срок ещё не истёк</span></span>
+          <span class="flex items-center gap-8 text-sm"><span class="journal-dot journal-dot-absence"></span><span data-i18n="t.missedDeadlinePassed">Пропуск (срок истёк)</span></span>
+          <span class="flex items-center gap-8 text-sm"><span class="journal-dot journal-dot-reopened"></span><span data-i18n="t.accessOpenedManually">Доступ открыт вручную</span></span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="exportJournal('${playlistId}','${groupId}')">⬇️ Скачать ведомость (Excel)</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span data-i18n="common.student">Студент</span></th>
+              ${lessons.map(l => `<th style="min-width:84px">
+                ${l.title}
+                ${l.deadline ? `<div class="text-muted" style="font-weight:400;font-size:11px;margin-top:2px">до ${new Date(l.deadline).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>` : ''}
+              </th>`).join('')}
+              <th style="min-width:90px">Рубежка 1 ${exams.checkpoint1 ? '📝' : ''}</th>
+              <th style="min-width:90px">Рубежка 2 ${exams.checkpoint2 ? '📝' : ''}</th>
+              <th style="min-width:90px">Сессия ${exams.session ? '📝' : ''}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${journal.map(row => `
+              <tr>
+                <td>${row.student.full_name || row.student.username}</td>
+                ${lessons.map(l => {
+                  const w = row.weekly[l.id];
+                  const g = w.grade;
+                  const gradeHtml = g
+                    ? `<span class="grade-badge ${gradeColorClass(g.value)}" style="cursor:pointer" onclick="editGradeInline(${g.id}, ${g.value}).then(()=>loadJournal())">${g.value}</span>`
+                    : `<span class="text-muted text-sm">—</span>`;
+
+                  if (w.attendance === 'absence') {
+                    return `<td>
+                      <div class="flex flex-col gap-4">
+                        <span class="journal-badge journal-badge-absence" title="Срок истёк, урок не пройден"><span data-i18n="t.missed">Пропуск</span></span>
+                        <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 6px" onclick="reopenLessonAccess(${l.id}, ${row.student.id})"><span data-i18n="lib.openAccess">Открыть доступ</span></button>
+                      </div>
+                    </td>`;
+                  }
+                  if (w.attendance === 'reopened') {
+                    return `<td>
+                      <div class="flex flex-col gap-4">
+                        ${gradeHtml}
+                        <span class="journal-badge journal-badge-reopened" style="cursor:pointer" title="Нажмите, чтобы снова закрыть доступ" onclick="revokeLessonAccess(${l.id}, ${row.student.id})"><span data-i18n="t.openedManually">Открыто вручную</span></span>
+                      </div>
+                    </td>`;
+                  }
+                  if (w.attendance === 'in_progress') {
+                    return `<td>${gradeHtml} <span class="journal-dot journal-dot-progress" title="Срок ещё не истёк" style="display:inline-block"></span></td>`;
+                  }
+                  return `<td>${gradeHtml}</td>`;
+                }).join('')}
+                <td>${row.checkpoint1
+                  ? `<span class="grade-badge ${gradeColorClass(row.checkpoint1.value)}" style="cursor:pointer" onclick="setCheckpoint(${row.student.id}, ${playlistId}, 'checkpoint1', ${row.checkpoint1.value})">${row.checkpoint1.value}</span>`
+                  : `<button class="btn btn-ghost btn-sm" onclick="setCheckpoint(${row.student.id}, ${playlistId}, 'checkpoint1', null)" ${!row.weekly_complete ? 'disabled title="Сначала все недельные оценки"' : ''}>Выставить</button>`}
+                </td>
+                <td>${row.checkpoint2
+                  ? `<span class="grade-badge ${gradeColorClass(row.checkpoint2.value)}" style="cursor:pointer" onclick="setCheckpoint(${row.student.id}, ${playlistId}, 'checkpoint2', ${row.checkpoint2.value})">${row.checkpoint2.value}</span>`
+                  : `<button class="btn btn-ghost btn-sm" onclick="setCheckpoint(${row.student.id}, ${playlistId}, 'checkpoint2', null)" ${!row.checkpoint1 ? 'disabled title="Сначала рубежка 1"' : ''}>Выставить</button>`}
+                </td>
+                <td>${row.session
+                  ? `<span class="grade-badge ${gradeColorClass(row.session.value)}">${row.session.value} ${gradedByLabel(row.session.graded_by)}</span>`
+                  : `<span class="text-muted text-sm">—</span>`}
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-muted text-sm mt-8">
+        📝 — для этого этапа настроен экзамен-тест (создайте его в разделе «Тесты», указав курс и этап при создании).
+        Сессия выставляется автоматически после двух рубежек (и сдачи экзамена сессии, если он настроен).
+      </p>`;
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state"><p><span data-i18n="t.loadJournalError">Ошибка загрузки журнала</span></p></div>`;
+  }
+}
+
+async function exportJournal(playlistId, groupId) {
+  try {
+    const res = await fetch(`/api/grades/journal/export?group_id=${groupId}&playlist_id=${playlistId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) { showToast(i18nT('toast.teacher.buildReportFailed'), 'error'); return; }
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const filename = match ? decodeURIComponent(match[1]) : 'Ведомость.xlsx';
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    showToast(i18nT('toast.teacher.downloadReportError'), 'error');
+  }
+}
+
+async function reopenLessonAccess(lessonId, studentId) {
+  try {
+    await api('POST', `/api/lessons/${lessonId}/reopen`, { student_id: studentId });
+    showToast(i18nT('toast.teacher.lessonAccessGranted'), 'success');
+    loadJournal();
+  } catch (e) {
+    showToast(e.message || 'Не удалось открыть доступ', 'error');
+  }
+}
+
+async function revokeLessonAccess(lessonId, studentId) {
+  if (!confirm('Снова закрыть доступ к этому уроку для студента?')) return;
+  try {
+    await api('DELETE', `/api/lessons/${lessonId}/reopen/${studentId}`);
+    showToast(i18nT('toast.teacher.accessClosedAgain'), 'success');
+    loadJournal();
+  } catch (e) {
+    showToast(e.message || 'Не удалось закрыть доступ', 'error');
+  }
+}
+
+async function setCheckpoint(studentId, playlistId, controlType, currentValue) {
+  const val = prompt(`Оценка за ${controlType === 'checkpoint1' ? 'рубежный контроль 1' : 'рубежный контроль 2'} (0–100):`, currentValue ?? '');
+  if (val === null) return;
+  const num = parseInt(val);
+  if (isNaN(num) || num < 0 || num > 100) return showToast(i18nT('toast.teacher.enterNumber0to100'), 'error');
+  try {
+    const res = await api('POST', '/api/grades/checkpoint', { student_id: studentId, playlist_id: playlistId, control_type: controlType, value: num });
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast(i18nT('toast.teacher.gradeSet'));
+    if (res.session_grade) showToast(`Сессия автоматически выставлена: ${res.session_grade.value}`, 'info');
+    loadJournal();
+  } catch (e) { showToast(i18nT('toast.teacher.saveError'), 'error'); }
+}
+
+// ─────────────────────────────────────────────
+// РАСПИСАНИЕ (только просмотр)
+// ─────────────────────────────────────────────
+const DAY_NAMES_T = { 1: 'Понедельник', 2: 'Вторник', 3: 'Среда', 4: 'Четверг', 5: 'Пятница', 6: 'Суббота', 7: 'Воскресенье' };
+
+async function loadTeacherSchedule() {
+  const el = document.getElementById('teacherScheduleView');
+  try {
+    const items = await api('GET', '/api/schedule');
+    if (!items.length) { el.innerHTML = `<div class="empty-state"><p><span data-i18n="t.scheduleNotFilledByOperator">Расписание пока не заполнено оператором</span></p></div>`; return; }
+    const byDay = {};
+    items.forEach(i => { (byDay[i.day_of_week] = byDay[i.day_of_week] || []).push(i); });
+    el.innerHTML = Object.keys(byDay).sort((a,b)=>a-b).map(day => `
+      <div class="card mb-16">
+        <h4 class="mb-12">${DAY_NAMES_T[day] || 'День ' + day}</h4>
+        ${byDay[day].map(i => `
+          <div class="flex items-center gap-12" style="padding:10px 0;border-top:1px solid var(--border)">
+            <div style="font-weight:700;color:var(--purple);min-width:90px">${i.start_time}–${i.end_time}</div>
+            <div style="flex:1">
+              <div style="font-weight:600">${i.subject_title || i.playlist_title || 'Занятие'}</div>
+              <div class="text-sm text-muted">Группа: ${i.group_name}${i.room ? ' · ауд. ' + i.room : ''}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    `).join('');
+  } catch (e) { el.innerHTML = `<div class="empty-state"><p>Ошибка загрузки расписания</p></div>`; }
+}
+
+function openAddGradeModal() {
+  const sel = document.getElementById('agStudent');
+  sel.innerHTML = allStudents.map(s =>
+    `<option value="${s.id}">${s.full_name || s.username}</option>`
+  ).join('');
+  document.getElementById('agValue').value   = '';
+  document.getElementById('agComment').value = '';
+  openModal('addGradeModal');
+}
+
+async function saveManualGrade() {
+  const student_id = document.getElementById('agStudent').value;
+  const value      = parseInt(document.getElementById('agValue').value);
+  const comment    = document.getElementById('agComment').value.trim();
+  if (isNaN(value) || value < 0 || value > 100) {
+    showToast(i18nT('toast.teacher.enterGrade0to100'), 'error'); return;
+  }
+  const btn = document.getElementById('agSaveBtn');
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const res = await api('POST', '/api/grades', { student_id, value, comment });
+    if (res.error) { showToast(res.error, 'error'); return; }
+    closeModal('addGradeModal');
+    showToast(i18nT('toast.teacher.gradeAddedToJournal'));
+    await loadStudentGrades();
+  } catch(e) {
+    showToast(i18nT('toast.admin.genericError'), 'error');
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = 'Выставить оценку';
+  }
+}
+
+// ─────────────────────────────────────────────
+// МОДАЛКИ — УТИЛИТЫ
+// ─────────────────────────────────────────────
+function openModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+  document.body.style.overflow = '';
+}
+function closeOnOverlay(e, id) {
+  if (e.target === document.getElementById(id)) closeModal(id);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    ['playlistModal','lessonModal','addGradeModal','uploadBookModal','createPlaylistLibModal','addBookModal','bookAccessModal','lessonQuizModal'].forEach(id => {
+      if (!document.getElementById(id).classList.contains('hidden')) closeModal(id);
+    });
+  }
+});
+
+// ─────────────────────────────────────────────
+// БИБЛИОТЕКА
+// ─────────────────────────────────────────────
+let libraryBooksCache = [];
+let libraryDetailPlaylistId = null;
+let libraryBookSearchTimer = null;
+
+function debouncedLoadLibraryBooks() {
+  clearTimeout(libraryBookSearchTimer);
+  libraryBookSearchTimer = setTimeout(loadLibraryBooks, 300);
+}
+
+async function loadLibraryBooks() {
+  const grid = document.getElementById('libraryBooksGrid');
+  try {
+    const search = document.getElementById('libraryBookSearch').value.trim();
+    const url = '/api/library/books' + (search ? `?search=${encodeURIComponent(search)}` : '');
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось загрузить книги', 'error'); return; }
+    libraryBooksCache = data;
+    renderLibraryBooks(data);
+  } catch (e) {
+    grid.innerHTML = `<p class="text-muted"><span data-i18n="lib.loadLibraryFailed">Не удалось загрузить библиотеку</span></p>`;
+  }
+}
+
+function accessModeLabel(mode) {
+  return { private: 'Приватно', public: 'Всем', link: 'По ссылке' }[mode] || mode;
+}
+
+function renderLibraryBooks(books) {
+  const grid = document.getElementById('libraryBooksGrid');
+  if (!books.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-state-icon">📚</div><h3><span data-i18n="lib.noBooksYet">Книг пока нет</span></h3>
+      <p><span data-i18n="org.uploadFirstBook">Загрузите первую книгу, чтобы делиться ссылкой на неё в уроках</span></p>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = books.map(b => {
+    const isOwner = b.uploaded_by === user.id;
+    return `
+    <div class="card">
+      <div class="card-body">
+        <div class="flex justify-between items-start gap-8">
+          <div class="flex items-start gap-12">
+            ${b.cover_path ? `<img class="book-cover" src="${b.cover_path}" alt="">` : `<div class="book-cover-placeholder">📚</div>`}
+            <div>
+              <div class="card-title">${escapeHtml(b.title)}</div>
+              ${b.author ? `<div class="text-muted text-sm mt-8">${escapeHtml(b.author)}</div>` : ''}
+            </div>
+          </div>
+          <div class="flex" style="flex-direction:column;align-items:flex-end;gap:4px">
+            ${b.category ? `<span class="badge badge-teacher">${escapeHtml(b.category)}</span>` : ''}
+            ${isOwner ? `<span class="badge badge-pending">${accessModeLabel(b.access_mode)}</span>` : ''}
+          </div>
+        </div>
+        ${b.description ? `<p class="text-sm text-muted mt-8">${escapeHtml(b.description)}</p>` : ''}
+        <div class="text-sm text-muted mt-8">Загрузил(а): ${escapeHtml(b.uploader_name || '')}</div>
+      </div>
+      <div class="card-footer flex gap-8" style="flex-wrap:wrap">
+        <a class="btn btn-ghost btn-sm" href="#" onclick="event.preventDefault(); openDocumentReader('${b.file_path}', {title: '${escapeHtml(b.title).replace(/'/g, "\\'")}'})">📖 Читать</a>
+        <a class="btn btn-ghost btn-sm" href="${b.file_path}" download title="Скачать">📥</a>
+        <button class="btn btn-ghost btn-sm" onclick="copyBookLink('${b.file_path}')"><span data-i18n="lib.link">Ссылка</span></button>
+        ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="openBookAccessModal(${b.id}, '${escapeHtml(b.title).replace(/'/g, "\\'")}')"><span data-i18n="lib.access">Доступ</span></button>` : ''}
+        ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="deleteLibraryBook(${b.id})" title="Удалить">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+          </svg>
+        </button>` : ''}
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+function copyBookLink(filePath) {
+  const fullUrl = window.location.origin + filePath;
+  navigator.clipboard.writeText(fullUrl)
+    .then(() => showToast(i18nT('toast.admin.linkCopied')))
+    .catch(() => showToast(i18nT('toast.admin.copyLinkFailed'), 'error'));
+}
+
+function openUploadBookModal() {
+  ['bookTitle','bookAuthor','bookCategory','bookDescription'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('bookFile').value = '';
+  document.getElementById('bookCover').value = '';
+  document.getElementById('bookFileDrop').style.display = '';
+  document.getElementById('bookFileSel').classList.add('hidden');
+  document.getElementById('bookCoverDrop').style.display = '';
+  document.getElementById('bookCoverSel').classList.add('hidden');
+  document.getElementById('bookAccessMode').value = 'private';
+  openModal('uploadBookModal');
+}
+
+async function submitUploadBook() {
+  const title = document.getElementById('bookTitle').value.trim();
+  const fileInput = document.getElementById('bookFile');
+  if (!title) { showToast(i18nT('toast.admin.specifyBookName'), 'error'); return; }
+  if (!fileInput.files[0]) { showToast(i18nT('toast.admin.selectBookFile'), 'error'); return; }
+
+  const btn = document.getElementById('uploadBookBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Загружаем...';
+
+  const fd = new FormData();
+  fd.append('title', title);
+  fd.append('author', document.getElementById('bookAuthor').value.trim());
+  fd.append('category', document.getElementById('bookCategory').value.trim());
+  fd.append('description', document.getElementById('bookDescription').value.trim());
+  fd.append('file', fileInput.files[0]);
+  fd.append('access_mode', document.getElementById('bookAccessMode').value);
+  if (document.getElementById('bookCover').files[0]) fd.append('cover', document.getElementById('bookCover').files[0]);
+
+  try {
+    const res = await fetch('/api/library/books', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: fd
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Ошибка загрузки', 'error'); return; }
+    showToast(i18nT('toast.admin.bookUploaded'));
+    closeModal('uploadBookModal');
+    loadLibraryBooks();
+  } catch (e) {
+    showToast(i18nT('toast.admin.loadBookError'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Загрузить';
+  }
+}
+
+async function deleteLibraryBook(id) {
+  if (!confirm('Удалить эту книгу из библиотеки?')) return;
+  try {
+    const res = await fetch(`/api/library/books/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось удалить', 'error'); return; }
+    showToast(i18nT('toast.admin.bookDeleted'));
+    loadLibraryBooks();
+  } catch (e) {
+    showToast(i18nT('toast.admin.deleteErrorShort'), 'error');
+  }
+}
+
+// ─── ДОСТУП К КНИГЕ (приватно / всем / по ссылке; правила для студента/группы/учителя) ───
+let bookAccessBookId = null;
+let bookAccessGrantsCache = [];
+let bookAccessGroupsCache = null; // группы преподавателя, кэшируем один раз
+let grantSearchTimer = null;
+
+async function openBookAccessModal(bookId, title) {
+  bookAccessBookId = bookId;
+  document.getElementById('bookAccessTitle').textContent = title;
+  document.getElementById('grantSearch').value = '';
+  document.getElementById('grantTargetType').value = 'student';
+  document.getElementById('grantPickerResults').innerHTML = '';
+  openModal('bookAccessModal');
+  await loadBookAccess();
+}
+
+async function loadBookAccess() {
+  try {
+    const res = await fetch(`/api/library/books/${bookAccessBookId}/access`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось загрузить доступ', 'error'); return; }
+    document.getElementById('bookAccessModeSelect').value = data.access_mode;
+    bookAccessGrantsCache = data.grants;
+    renderBookAccessGrants();
+    document.getElementById('bookAccessGrantsWrap').classList.toggle('hidden', data.access_mode !== 'private');
+  } catch (e) {
+    showToast(i18nT('toast.admin.loadAccessError'), 'error');
+  }
+}
+
+function renderBookAccessGrants() {
+  const list = document.getElementById('bookAccessGrantsList');
+  if (!bookAccessGrantsCache.length) {
+    list.innerHTML = `<p class="text-muted text-sm"><span data-i18n="lib.noAccessGrantedYet">Пока никому не открыт доступ</span></p>`;
+    return;
+  }
+  const typeLabel = { student: 'Студент', teacher: 'Учитель', group: 'Группа' };
+  list.innerHTML = bookAccessGrantsCache.map(g => `
+    <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div class="text-sm">
+        <span class="badge badge-teacher" style="margin-right:8px">${typeLabel[g.target_type]}</span>
+        ${escapeHtml(g.target_name || '—')}
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="removeGrant(${g.id})"><span data-i18n="lib.remove">Убрать</span></button>
+    </div>
+  `).join('');
+}
+
+async function changeAccessMode() {
+  const mode = document.getElementById('bookAccessModeSelect').value;
+  try {
+    const res = await fetch(`/api/library/books/${bookAccessBookId}/access-mode`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access_mode: mode })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось изменить режим', 'error'); return; }
+    document.getElementById('bookAccessGrantsWrap').classList.toggle('hidden', mode !== 'private');
+    loadLibraryBooks();
+  } catch (e) {
+    showToast(i18nT('toast.admin.changeAccessModeError'), 'error');
+  }
+}
+
+function renderGrantPickerResults() {
+  clearTimeout(grantSearchTimer);
+  grantSearchTimer = setTimeout(async () => {
+    const type = document.getElementById('grantTargetType').value;
+    const q = document.getElementById('grantSearch').value.trim();
+    const resultsEl = document.getElementById('grantPickerResults');
+    try {
+      let items;
+      if (type === 'group') {
+        if (!bookAccessGroupsCache) {
+          const res = await fetch('/api/groups', { headers: { 'Authorization': `Bearer ${token}` } });
+          bookAccessGroupsCache = await res.json();
+        }
+        items = bookAccessGroupsCache
+          .filter(g => !q || g.name.toLowerCase().includes(q.toLowerCase()))
+          .map(g => ({ id: g.id, label: g.name }));
+      } else {
+        const res = await fetch(`/api/users?role=${type}&search=${encodeURIComponent(q)}&limit=20`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const rows = Array.isArray(data) ? data : (data.users || []);
+        items = rows.map(u => ({ id: u.id, label: u.full_name || u.username }));
+      }
+      resultsEl.innerHTML = !items.length
+        ? `<p class="text-muted text-sm"><span data-i18n="lib.nothingFound">Ничего не найдено</span></p>`
+        : items.map(i => `
+          <div class="flex justify-between items-center" style="padding:6px 0">
+            <span class="text-sm">${escapeHtml(i.label)}</span>
+            <button class="btn btn-primary btn-sm" onclick="addGrant('${type}', ${i.id})"><span data-i18n="common.add">Добавить</span></button>
+          </div>
+        `).join('');
+    } catch (e) {
+      resultsEl.innerHTML = `<p class="text-muted text-sm"><span data-i18n="lib.searchError">Ошибка поиска</span></p>`;
+    }
+  }, 250);
+}
+
+async function addGrant(targetType, targetId) {
+  try {
+    const res = await fetch(`/api/library/books/${bookAccessBookId}/access`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_type: targetType, target_id: targetId })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось открыть доступ', 'error'); return; }
+    showToast(i18nT('toast.admin.accessGranted'));
+    loadBookAccess();
+  } catch (e) {
+    showToast(i18nT('toast.admin.openAccessError'), 'error');
+  }
+}
+
+async function removeGrant(grantId) {
+  try {
+    const res = await fetch(`/api/library/books/${bookAccessBookId}/access/${grantId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось убрать доступ', 'error'); return; }
+    loadBookAccess();
+  } catch (e) {
+    showToast(i18nT('toast.admin.genericError'), 'error');
+  }
+}
+
+let libraryPlaylistsCache = [];
+
+async function loadLibraryPlaylists() {
+  const grid = document.getElementById('libraryPlaylistsGrid');
+  try {
+    const res = await fetch('/api/library/playlists', { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось загрузить подборки', 'error'); return; }
+    libraryPlaylistsCache = data;
+    renderLibraryPlaylists(data);
+  } catch (e) {
+    grid.innerHTML = `<p class="text-muted"><span data-i18n="lib.loadCollectionsFailed">Не удалось загрузить подборки</span></p>`;
+  }
+}
+
+function renderLibraryPlaylists(playlists) {
+  const grid = document.getElementById('libraryPlaylistsGrid');
+  if (!playlists.length) {
+    grid.innerHTML = `<p class="text-muted text-sm">Подборок пока нет — создайте первую, чтобы группировать книги по темам</p>`;
+    return;
+  }
+  grid.innerHTML = playlists.map(p => `
+    <div class="card card-clickable" onclick="openPlaylistDetail(${p.id})">
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(p.title)}</div>
+        ${p.description ? `<p class="text-sm text-muted mt-8">${escapeHtml(p.description)}</p>` : ''}
+        <div class="text-sm text-muted mt-8">${p.book_count} кн. · ${escapeHtml(p.owner_name || '')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openCreatePlaylistModal() {
+  document.getElementById('libPlaylistTitle').value = '';
+  document.getElementById('libPlaylistDescription').value = '';
+  openModal('createPlaylistLibModal');
+}
+
+async function submitCreatePlaylist() {
+  const title = document.getElementById('libPlaylistTitle').value.trim();
+  if (!title) { showToast(i18nT('toast.admin.specifyPlaylistName'), 'error'); return; }
+  try {
+    const res = await fetch('/api/library/playlists', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        description: document.getElementById('libPlaylistDescription').value.trim()
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Ошибка создания', 'error'); return; }
+    showToast(i18nT('toast.admin.playlistCreated'));
+    closeModal('createPlaylistLibModal');
+    loadLibraryPlaylists();
+  } catch (e) {
+    showToast(i18nT('toast.admin.createPlaylistError'), 'error');
+  }
+}
+
+async function openPlaylistDetail(id) {
+  libraryDetailPlaylistId = id;
+  try {
+    const res = await fetch(`/api/library/playlists/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const playlist = await res.json();
+    if (!res.ok) { showToast(playlist.error || 'Не удалось открыть подборку', 'error'); return; }
+
+    document.getElementById('libraryPlaylistDetailTitle').textContent = playlist.title;
+    document.getElementById('libraryPlaylistDetailDesc').textContent = playlist.description || '';
+    const grid = document.getElementById('libraryPlaylistDetailGrid');
+    grid.innerHTML = !playlist.books.length
+      ? `<p class="text-muted text-sm"><span data-i18n="lib.noBooksInCollection">В подборке пока нет книг</span></p>`
+      : playlist.books.map(b => `
+        <div class="card">
+          <div class="card-body flex items-start gap-12">
+            ${b.cover_path ? `<img class="book-cover" src="${b.cover_path}" alt="">` : `<div class="book-cover-placeholder">📚</div>`}
+            <div>
+              <div class="card-title">${escapeHtml(b.title)}</div>
+              ${b.author ? `<div class="text-muted text-sm mt-8">${escapeHtml(b.author)}</div>` : ''}
+            </div>
+          </div>
+          <div class="card-footer flex gap-8">
+            <a class="btn btn-ghost btn-sm" href="#" onclick="event.preventDefault(); openDocumentReader('${b.file_path}', {title: '${escapeHtml(b.title).replace(/'/g, "\\'")}'})">📖 Читать</a>
+        <a class="btn btn-ghost btn-sm" href="${b.file_path}" download title="Скачать">📥</a>
+            <button class="btn btn-ghost btn-sm" onclick="copyBookLink('${b.file_path}')"><span data-i18n="lib.link">Ссылка</span></button>
+            <button class="btn btn-ghost btn-sm" onclick="removeBookFromPlaylist(${b.id})"><span data-i18n="lib.remove">Убрать</span></button>
+          </div>
+        </div>
+      `).join('');
+
+    document.getElementById('libraryMain-view').classList.add('hidden');
+    document.getElementById('libraryBooksDetail-view').classList.remove('hidden');
+  } catch (e) {
+    showToast(i18nT('toast.admin.openPlaylistError'), 'error');
+  }
+}
+
+function closePlaylistDetail() {
+  libraryDetailPlaylistId = null;
+  document.getElementById('libraryBooksDetail-view').classList.add('hidden');
+  document.getElementById('libraryMain-view').classList.remove('hidden');
+  loadLibraryPlaylists();
+}
+
+async function removeBookFromPlaylist(bookId) {
+  if (!libraryDetailPlaylistId) return;
+  try {
+    const res = await fetch(`/api/library/playlists/${libraryDetailPlaylistId}/books/${bookId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) { const data = await res.json(); showToast(data.error || 'Не удалось убрать книгу', 'error'); return; }
+    openPlaylistDetail(libraryDetailPlaylistId);
+  } catch (e) {
+    showToast(i18nT('toast.admin.genericError'), 'error');
+  }
+}
+
+function openAddBookModal() {
+  document.getElementById('addBookSearch').value = '';
+  renderAddBookList();
+  openModal('addBookModal');
+}
+
+function renderAddBookList() {
+  const q = document.getElementById('addBookSearch').value.trim().toLowerCase();
+  const list = document.getElementById('addBookList');
+  const filtered = libraryBooksCache.filter(b =>
+    !q || b.title.toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q)
+  );
+  if (!filtered.length) { list.innerHTML = `<p class="text-muted text-sm"><span data-i18n="lib.nothingFound">Ничего не найдено</span></p>`; return; }
+  list.innerHTML = filtered.map(b => `
+    <div class="flex justify-between items-center" style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-weight:600">${escapeHtml(b.title)}</div>
+        ${b.author ? `<div class="text-sm text-muted">${escapeHtml(b.author)}</div>` : ''}
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="addBookToPlaylist(${b.id})"><span data-i18n="common.add">Добавить</span></button>
+    </div>
+  `).join('');
+}
+
+async function addBookToPlaylist(bookId) {
+  if (!libraryDetailPlaylistId) return;
+  try {
+    const res = await fetch(`/api/library/playlists/${libraryDetailPlaylistId}/books`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book_id: bookId })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось добавить книгу', 'error'); return; }
+    showToast(i18nT('toast.admin.bookAddedToPlaylist'));
+    openPlaylistDetail(libraryDetailPlaylistId);
+  } catch (e) {
+    showToast(i18nT('toast.admin.addBookError'), 'error');
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+// ─────────────────────────────────────────────
+// ВИДЕОЗВОНКИ
+// ─────────────────────────────────────────────
+// Архитектура — "звезда" вокруг учителя: учитель держит одно RTCPeerConnection
+// на каждого студента (никаких студент↔студент соединений). Демонстрация
+// экрана студента с scope='all' ретранслируется через учителя: он добавляет
+// полученный трек в остальные свои соединения (пересылка внутри процесса,
+// без сервера).
+// Известные ограничения первой итерации (см. сопроводительный документ):
+// без TURN-сервера (звонок может не собраться за строгим NAT/файрволом),
+// мьют — по протоколу (клиент студента сам гасит track.enabled, это не
+// серверный форс-мьют), запись звонков не реализована.
+const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+let callWS = null;
+let callRoomId = null;
+let callLocalStream = null;
+let callScreenStream = null;
+let callIsSharingScreen = false;
+let callScreenShareTrackId = null;
+// userId -> { pc, fullName, micEnabled, camEnabled, handRaised, videoTrackCount,
+//             screenRelaySenders: Map<otherUserId, RTCRtpSender> }
+const callPeers = new Map();
+const callSelectedStudents = new Set();
+
+async function openCallModal() {
+  document.getElementById('callTitle').value = '';
+  const listEl = document.getElementById('callGroupsList');
+  listEl.innerHTML = '<div style="padding:10px;color:var(--text2)">Загрузка групп…</div>';
+  document.getElementById('callModal').classList.remove('hidden');
+  try {
+    const groups = await api('GET', '/api/groups');
+    if (!groups.length) {
+      listEl.innerHTML = '<div style="padding:10px;color:var(--text2)"><span data-i18n="t.noGroupsYet2">У вас пока нет групп</span></div>';
+      return;
+    }
+    listEl.innerHTML = groups.map(g => `
+      <label class="call-modal-group-row">
+        <input type="checkbox" value="${g.id}" class="call-group-checkbox">
+        <span>${escapeHtml(g.name)}${g.faculty_name ? ` <span style="color:var(--text2)">· ${escapeHtml(g.faculty_name)}</span>` : ''}</span>
+      </label>
+    `).join('');
+  } catch (e) {
+    listEl.innerHTML = '<div style="padding:10px;color:var(--danger,#c0392b)"><span data-i18n="t.loadGroupsError">Не удалось загрузить группы</span></div>';
+  }
+}
+
+function callConnectWS() {
+  return new Promise((resolve, reject) => {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    callWS = new WebSocket(`${proto}://${location.host}/ws/video`);
+    callWS.onopen = () => callWS.send(JSON.stringify({ type: 'auth', token }));
+    callWS.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === 'auth-ok') return resolve();
+      if (msg.type === 'error' && !callRoomId) return reject(new Error(msg.error));
+      handleCallMessage(msg);
+    };
+    callWS.onclose = () => { if (callRoomId) showToast(i18nT('toast.teacher.callConnectionLost'), 'error'); };
+    callWS.onerror = () => reject(new Error('Не удалось подключиться к серверу звонков'));
+  });
+}
+
+async function startVideoCall() {
+  const groupIds = [...document.querySelectorAll('.call-group-checkbox:checked')].map(c => Number(c.value));
+  if (!groupIds.length) return showToast(i18nT('toast.teacher.selectAtLeastOneGroup'), 'error');
+  const title = document.getElementById('callTitle').value.trim() || null;
+
+  try {
+    callLocalStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  } catch (e) {
+    return showToast(i18nT('toast.teacher.noCameraMicAccess'), 'error');
+  }
+
+  try {
+    await callConnectWS();
+  } catch (e) {
+    showToast(e.message, 'error');
+    callLocalStream.getTracks().forEach(t => t.stop());
+    return;
+  }
+
+  callWS.send(JSON.stringify({ type: 'create-room', group_ids: groupIds, title }));
+
+  document.getElementById('callSelfVideo').srcObject = callLocalStream;
+  closeModal('callModal');
+  document.getElementById('callOverlay').classList.remove('hidden');
+  document.getElementById('callTopbarTitle').textContent = title || 'Видеозвонок';
+}
+
+function handleCallMessage(msg) {
+  switch (msg.type) {
+    case 'room-created':
+      callRoomId = msg.room_id;
+      document.getElementById('callStartBtnLabel').innerHTML = 'Видеозвонок идёт <span class="call-live-badge">LIVE</span>';
+      break;
+
+    case 'participant-joined':
+      if (msg.role === 'student') callCreatePeerForStudent(msg.user_id, msg.full_name);
+      break;
+
+    case 'participant-left':
+      callRemovePeer(msg.user_id);
+      break;
+
+    case 'room-ended':
+      callTeardown();
+      break;
+
+    case 'offer':
+    case 'answer': {
+      const peer = callPeers.get(msg.from_user_id);
+      if (!peer) return;
+      handleCallSdp(peer, msg.type, msg.payload, msg.from_user_id);
+      break;
+    }
+
+    case 'ice-candidate': {
+      const peer = callPeers.get(msg.from_user_id);
+      if (peer && msg.payload) peer.pc.addIceCandidate(new RTCIceCandidate(msg.payload)).catch(() => {});
+      break;
+    }
+
+    case 'hand-raised':
+    case 'hand-lowered': {
+      const peer = callPeers.get(msg.user_id);
+      if (!peer) return;
+      peer.handRaised = msg.type === 'hand-raised';
+      renderCallTile(msg.user_id);
+      break;
+    }
+
+    case 'screen-share-started':
+      callOnRemoteScreenShareStarted(msg.user_id, msg.scope);
+      break;
+
+    case 'screen-share-stopped':
+      callOnRemoteScreenShareStopped(msg.user_id);
+      break;
+
+    case 'error':
+      showToast(msg.error, 'error');
+      break;
+  }
+}
+
+async function callCreatePeerForStudent(userId, fullName) {
+  if (callPeers.has(userId)) return;
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const peer = {
+    pc, fullName, micEnabled: true, camEnabled: true, handRaised: false,
+    videoTrackCount: 0, screenRelaySenders: new Map()
+  };
+  callPeers.set(userId, peer);
+
+  callLocalStream.getTracks().forEach(t => pc.addTrack(t, callLocalStream));
+
+  pc.onicecandidate = (e) => {
+    if (e.candidate) callWS.send(JSON.stringify({ type: 'ice-candidate', room_id: callRoomId, to_user_id: userId, payload: e.candidate }));
+  };
+
+  pc.ontrack = (e) => {
+    peer.videoTrackCount += 1;
+    // Первый видеотрек студента — его камера. Второй, появившийся после
+    // screen-share-started — демонстрация его экрана (только просмотр учителем,
+    // ретрансляция другим студентам делается отдельно из уже полученного трека).
+    renderCallTile(userId, e.streams[0]);
+  };
+
+  pc.onnegotiationneeded = async () => {
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      callWS.send(JSON.stringify({ type: 'offer', room_id: callRoomId, to_user_id: userId, payload: pc.localDescription }));
+    } catch (_) {}
+  };
+
+  renderCallTile(userId);
+}
+
+async function handleCallSdp(peer, type, payload, fromUserId) {
+  if (type === 'offer') {
+    // Переговоры (renegotiation) со стороны студента — например, он включил
+    // демонстрацию экрана и добавил трек в уже существующее соединение.
+    await peer.pc.setRemoteDescription(new RTCSessionDescription(payload));
+    const answer = await peer.pc.createAnswer();
+    await peer.pc.setLocalDescription(answer);
+    callWS.send(JSON.stringify({ type: 'answer', room_id: callRoomId, to_user_id: fromUserId, payload: peer.pc.localDescription }));
+  } else {
+    await peer.pc.setRemoteDescription(new RTCSessionDescription(payload));
+  }
+}
+
+function callRemovePeer(userId) {
+  const peer = callPeers.get(userId);
+  if (!peer) return;
+  peer.pc.close();
+  callPeers.delete(userId);
+  callSelectedStudents.delete(userId);
+  const tile = document.getElementById(`callTile-${userId}`);
+  if (tile) tile.remove();
+}
+
+function renderCallTile(userId, stream) {
+  const peer = callPeers.get(userId);
+  if (!peer) return;
+  let tile = document.getElementById(`callTile-${userId}`);
+  const initials = (peer.fullName || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+
+  if (!tile) {
+    tile = document.createElement('div');
+    tile.className = 'call-tile';
+    tile.id = `callTile-${userId}`;
+    tile.innerHTML = `
+      <input type="checkbox" class="call-tile-select" onchange="toggleStudentSelect(${userId}, this.checked)">
+      <div class="call-tile-avatar" id="callTileAvatar-${userId}">${initials}</div>
+      <video id="callTileVideo-${userId}" autoplay playsinline style="display:none"></video>
+      <div class="call-tile-icons">
+        <span class="call-tile-icon" id="callTileMic-${userId}" title="Микрофон" onclick="toggleOneMute(${userId},'mic')">🎙️</span>
+        <span class="call-tile-icon" id="callTileCam-${userId}" title="Камера" onclick="toggleOneMute(${userId},'cam')">🎥</span>
+      </div>
+      <div class="call-tile-name">${escapeHtml(peer.fullName || 'Студент')}</div>
+    `;
+    document.getElementById('callGrid').appendChild(tile);
+  }
+
+  if (stream) {
+    const video = document.getElementById(`callTileVideo-${userId}`);
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById(`callTileAvatar-${userId}`).style.display = 'none';
+  }
+
+  tile.classList.toggle('hand-raised', peer.handRaised);
+  let handEl = tile.querySelector('.call-tile-hand');
+  if (peer.handRaised && !handEl) {
+    handEl = document.createElement('div');
+    handEl.className = 'call-tile-hand';
+    handEl.textContent = '🖐';
+    tile.appendChild(handEl);
+  } else if (!peer.handRaised && handEl) {
+    handEl.remove();
+  }
+
+  document.getElementById(`callTileMic-${userId}`).classList.toggle('off', !peer.micEnabled);
+  document.getElementById(`callTileCam-${userId}`).classList.toggle('off', !peer.camEnabled);
+}
+
+function toggleStudentSelect(userId, checked) {
+  if (checked) callSelectedStudents.add(userId); else callSelectedStudents.delete(userId);
+  document.getElementById(`callTile-${userId}`).classList.toggle('selected', checked);
+}
+
+function toggleOneMute(userId, kind) {
+  const peer = callPeers.get(userId);
+  if (!peer) return;
+  const enabled = kind === 'mic' ? !peer.micEnabled : !peer.camEnabled;
+  sendMuteRequest([userId], kind, enabled);
+}
+
+function muteSelected(kind, enabled) {
+  if (!callSelectedStudents.size) return showToast(i18nT('toast.teacher.selectStudentsFirst'), 'info');
+  sendMuteRequest([...callSelectedStudents], kind, enabled);
+}
+
+function muteAll(kind, enabled) {
+  sendMuteRequest([...callPeers.keys()], kind, enabled);
+}
+
+function sendMuteRequest(targetUserIds, kind, enabled) {
+  if (!targetUserIds.length) return;
+  callWS.send(JSON.stringify({ type: 'mute-request', room_id: callRoomId, target_user_ids: targetUserIds, kind, enabled }));
+  // Оптимистично обновляем локальное отображение — сервер также подтвердит.
+  targetUserIds.forEach(uid => {
+    const peer = callPeers.get(uid);
+    if (!peer) return;
+    if (kind === 'mic') peer.micEnabled = enabled; else peer.camEnabled = enabled;
+    renderCallTile(uid);
+  });
+}
+
+async function toggleOwnScreenShare() {
+  const btn = document.getElementById('callScreenShareBtn');
+  if (callIsSharingScreen) {
+    callScreenStream.getTracks().forEach(t => t.stop());
+    callScreenStream = null;
+    callIsSharingScreen = false;
+    btn.textContent = '🖥️ Показать экран';
+    btn.classList.remove('active-toggle');
+    // Убираем трек экрана из всех соединений со студентами
+    for (const [, peer] of callPeers) {
+      const senders = peer.pc.getSenders().filter(s => s.track && s.track.kind === 'video' && s.track.id === callScreenShareTrackId);
+      senders.forEach(s => { try { peer.pc.removeTrack(s); } catch (_) {} });
+    }
+    callScreenShareTrackId = null;
+    return;
+  }
+  try {
+    callScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+  } catch (e) { return; }
+  callIsSharingScreen = true;
+  btn.textContent = '🖥️ Остановить показ';
+  btn.classList.add('active-toggle');
+  const track = callScreenStream.getVideoTracks()[0];
+  callScreenShareTrackId = track.id;
+  track.onended = () => toggleOwnScreenShare();
+  // Учитель — уже хаб; его демонстрация экрана рассылается напрямую через
+  // уже открытые соединения со всеми студентами.
+  for (const [, peer] of callPeers) peer.pc.addTrack(track, callScreenStream);
+}
+
+// Студент включил демонстрацию своего экрана (событие пришло по сигналингу).
+// Если scope='all' — после того как трек фактически придёт через ontrack на
+// pc[studentId], учитель ретранслирует его во все остальные соединения.
+function callOnRemoteScreenShareStarted(studentUserId, scope) {
+  const peer = callPeers.get(studentUserId);
+  if (!peer) return;
+  peer.pendingScreenRelay = scope === 'all';
+  showToast(`${peer.fullName || 'Студент'} показывает экран`, 'info');
+
+  if (scope !== 'all') return;
+  // Ждём появления второго видеотрека на pc[studentUserId] (первый — камера)
+  const waitForScreenTrack = setInterval(() => {
+    const receivers = peer.pc.getReceivers().filter(r => r.track && r.track.kind === 'video');
+    if (receivers.length < 2) return;
+    clearInterval(waitForScreenTrack);
+    const screenTrack = receivers[receivers.length - 1].track;
+    const screenStream = new MediaStream([screenTrack]);
+    for (const [otherId, otherPeer] of callPeers) {
+      if (otherId === studentUserId) continue;
+      const sender = otherPeer.pc.addTrack(screenTrack, screenStream);
+      peer.screenRelaySenders.set(otherId, sender);
+    }
+  }, 300);
+  setTimeout(() => clearInterval(waitForScreenTrack), 15000);
+}
+
+function callOnRemoteScreenShareStopped(studentUserId) {
+  const peer = callPeers.get(studentUserId);
+  if (!peer) return;
+  for (const [otherId, sender] of peer.screenRelaySenders) {
+    const otherPeer = callPeers.get(otherId);
+    if (otherPeer) { try { otherPeer.pc.removeTrack(sender); } catch (_) {} }
+  }
+  peer.screenRelaySenders.clear();
+}
+
+function endVideoCall() {
+  if (!callRoomId) return;
+  callWS.send(JSON.stringify({ type: 'end-room', room_id: callRoomId }));
+}
+
+function callTeardown() {
+  for (const [userId] of callPeers) callRemovePeer(userId);
+  if (callLocalStream) callLocalStream.getTracks().forEach(t => t.stop());
+  if (callScreenStream) callScreenStream.getTracks().forEach(t => t.stop());
+  callLocalStream = null; callScreenStream = null; callIsSharingScreen = false;
+  callRoomId = null; callSelectedStudents.clear();
+  if (callWS) { callWS.onclose = null; callWS.close(); callWS = null; }
+  document.getElementById('callOverlay').classList.add('hidden');
+  document.getElementById('callGrid').innerHTML = '';
+  document.getElementById('callStartBtnLabel').textContent = 'Начать видеозвонок';
+  showToast(i18nT('toast.teacher.callEnded'));
+}
+
+// ─────────────────────────────────────────────
+// СТАРТ
+// ─────────────────────────────────────────────
+loadPlaylists();
+</script>
+</body>
+</html>

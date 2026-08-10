@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ЕдуПортал — Вход</title>
+  <link rel="stylesheet" href="shared.css">
+  <script src="i18n.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body {
+      min-height: 100vh;
+      display:    flex;
+      background: var(--bg);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+    }
+
+    /* ─── ЛЕВАЯ ПОЛОВИНА — живая сеть знаний ─── */
+    .login-left {
+      width:      42%;
+      background: linear-gradient(145deg, #534AB7 0%, #3C3489 45%, #1D9E75 100%);
+      background-size: 200% 200%;
+      animation:  meshDrift 16s ease-in-out infinite;
+      display:    flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding:    48px;
+      position:   relative;
+      overflow:   hidden;
+    }
+
+    @keyframes meshDrift {
+      0%, 100% { background-position: 0% 50%; }
+      50%      { background-position: 100% 50%; }
+    }
+
+    /* Канвас с "созвездием" узлов — живой фон вместо статичных кругов */
+    #networkCanvas {
+      position: absolute;
+      inset:    0;
+      width:    100%;
+      height:   100%;
+      opacity:  0.55;
+    }
+
+    /* Мягкое свечение поверх канваса для глубины */
+    .login-left::before {
+      content:       '';
+      position:      absolute;
+      width:         420px;
+      height:        420px;
+      border-radius: 50%;
+      background:    radial-gradient(circle, rgba(255,255,255,0.10), transparent 70%);
+      top:           -120px;
+      right:         -120px;
+      animation:     orbFloat1 9s ease-in-out infinite;
+    }
+
+    .login-left::after {
+      content:       '';
+      position:      absolute;
+      width:         320px;
+      height:        320px;
+      border-radius: 50%;
+      background:    radial-gradient(circle, rgba(29,158,117,0.25), transparent 70%);
+      bottom:        -90px;
+      left:          -90px;
+      animation:     orbFloat2 11s ease-in-out infinite;
+    }
+
+    @keyframes orbFloat1 {
+      0%, 100% { transform: translate(0, 0); }
+      50%      { transform: translate(-16px, 18px); }
+    }
+    @keyframes orbFloat2 {
+      0%, 100% { transform: translate(0, 0); }
+      50%      { transform: translate(14px, -14px); }
+    }
+
+    .login-brand {
+      display:        flex;
+      flex-direction: column;
+      align-items:    center;
+      text-align:     center;
+      position:       relative;
+      z-index:        1;
+    }
+
+    .login-logo-wrap {
+      width:           88px;
+      height:          88px;
+      background:      rgba(255,255,255,0.15);
+      border-radius:   24px;
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      margin-bottom:   24px;
+      backdrop-filter: blur(10px);
+      border:          1.5px solid rgba(255,255,255,0.2);
+      box-shadow:      0 0 0 rgba(255,255,255,0.25);
+      animation:       logoPulse 3.4s ease-in-out infinite;
+    }
+
+    @keyframes logoPulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(255,255,255,0.0); }
+      50%      { box-shadow: 0 0 32px rgba(255,255,255,0.25); }
+    }
+
+    .login-brand-name {
+      font-size:     2rem;
+      font-weight:   800;
+      color:         #fff;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+    }
+
+    .login-slogan {
+      font-size:   1.05rem;
+      color:       rgba(255,255,255,0.8);
+      line-height: 1.6;
+      max-width:   260px;
+    }
+
+    .login-slogan strong {
+      color:      #fff;
+      display:    block;
+      font-size:  1.2rem;
+      margin-bottom: 6px;
+    }
+
+    /* Декоративные карточки-фичи */
+    .login-features {
+      margin-top: 40px;
+      display:    flex;
+      flex-direction: column;
+      gap:        12px;
+      width:      100%;
+      max-width:  300px;
+      position:   relative;
+      z-index:    1;
+    }
+
+    .login-feature {
+      display:       flex;
+      align-items:   center;
+      gap:           12px;
+      padding:       12px 16px;
+      background:    rgba(255,255,255,0.1);
+      border-radius: 12px;
+      border:        1px solid rgba(255,255,255,0.15);
+      backdrop-filter: blur(8px);
+      opacity:       0;
+      transform:     translateX(-12px);
+      animation:     featureIn 0.5s ease forwards;
+      transition:    background var(--transition), transform var(--transition);
+    }
+    .login-feature:hover {
+      background: rgba(255,255,255,0.16);
+      transform:  translateX(2px);
+    }
+    .login-feature:nth-child(1) { animation-delay: 0.15s; }
+    .login-feature:nth-child(2) { animation-delay: 0.28s; }
+    .login-feature:nth-child(3) { animation-delay: 0.41s; }
+    .login-feature:nth-child(4) { animation-delay: 0.54s; }
+
+    @keyframes featureIn {
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .login-feature-icon {
+      font-size:   1.3rem;
+      flex-shrink: 0;
+    }
+
+    .login-feature-text {
+      color:       rgba(255,255,255,0.9);
+      font-size:   0.85rem;
+      font-weight: 500;
+    }
+
+    /* ─── ПРАВАЯ ПОЛОВИНА ─── */
+    .login-right {
+      flex:            1;
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      padding:         48px 32px;
+    }
+
+    .login-form-wrap {
+      width:     100%;
+      max-width: 400px;
+      animation: slideUp 0.5s cubic-bezier(.2,.8,.2,1) both;
+      background: rgba(255,255,255,0.6);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .login-form-header {
+      margin-bottom: 32px;
+    }
+
+    .login-form-header h1 {
+      font-size:     1.75rem;
+      font-weight:   800;
+      color:         var(--text);
+      letter-spacing: -0.03em;
+      margin-bottom: 6px;
+    }
+
+    .login-form-header p {
+      color:     var(--text2);
+      font-size: 0.9rem;
+    }
+
+    .login-form {
+      display:        flex;
+      flex-direction: column;
+      gap:            18px;
+    }
+
+    .login-btn {
+      width:           100%;
+      padding:         13px;
+      font-size:       1rem;
+      font-weight:     600;
+      justify-content: center;
+      border-radius:   var(--radius-lg);
+      margin-top:      4px;
+      position:        relative;
+      overflow:        hidden;
+      background:      linear-gradient(135deg, var(--purple), var(--purple-dark) 55%, var(--teal));
+      background-size: 220% 220%;
+      transition:       transform 0.15s ease, box-shadow 0.2s ease, background-position 0.4s ease;
+    }
+    .login-btn:hover:not(:disabled) {
+      transform:  translateY(-1px);
+      box-shadow: 0 10px 24px rgba(83,74,183,0.35);
+      background-position: 100% 0%;
+    }
+    .login-btn:active:not(:disabled) { transform: translateY(0); }
+
+    /* Полоска блеска, пробегающая по кнопке при наведении */
+    .login-btn::after {
+      content:    '';
+      position:   absolute;
+      top:        0; left: -60%;
+      width:      40%; height: 100%;
+      background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
+      transform:  skewX(-20deg);
+      transition: left 0.6s ease;
+    }
+    .login-btn:hover::after { left: 130%; }
+
+    .login-form input {
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .login-form input:focus {
+      border-color: var(--purple);
+      box-shadow:   0 0 0 4px rgba(83,74,183,0.15);
+      outline:      none;
+    }
+
+    .login-error {
+      display:       flex;
+      align-items:   center;
+      gap:           8px;
+      padding:       11px 14px;
+      background:    var(--red-light);
+      border-radius: var(--radius);
+      color:         var(--red-dark);
+      font-size:     0.88rem;
+      font-weight:   500;
+      animation:     fadeIn 0.2s ease;
+    }
+
+    .login-footer-note {
+      margin-top:  24px;
+      text-align:  center;
+      font-size:   0.8rem;
+      color:       var(--text3);
+      line-height: 1.6;
+    }
+
+    /* ─── ОТКРЫТЬ НА ТЕЛЕФОНЕ (QR) ─── */
+    .qr-login-btn {
+      margin-top:      14px;
+      width:           100%;
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      gap:             8px;
+      padding:         12px 16px;
+      background:      rgba(83,74,183,0.08);
+      border:          1px solid rgba(83,74,183,0.3);
+      border-radius:   var(--radius-lg);
+      color:           #534AB7;
+      font-size:       0.88rem;
+      font-weight:     600;
+      cursor:          pointer;
+      transition:      all 0.2s;
+    }
+    .qr-login-btn:hover {
+      background:   rgba(83,74,183,0.14);
+      border-color: #534AB7;
+    }
+
+    .qr-modal-overlay {
+      position:        fixed;
+      inset:           0;
+      background:      rgba(20,18,40,0.55);
+      backdrop-filter: blur(6px);
+      display:         none;
+      align-items:     center;
+      justify-content: center;
+      z-index:         9999;
+      padding:         20px;
+    }
+    .qr-modal-overlay.active { display: flex; }
+
+    .qr-modal-card {
+      background:    #fff;
+      border-radius: 20px;
+      padding:       28px;
+      max-width:     340px;
+      width:         100%;
+      text-align:    center;
+      box-shadow:    0 20px 60px rgba(29,26,71,0.3);
+    }
+    .qr-modal-card h3 {
+      color:         var(--text);
+      font-size:     1.05rem;
+      margin-bottom: 4px;
+    }
+    .qr-modal-card p {
+      color:         var(--text2);
+      font-size:     0.82rem;
+      margin-bottom: 18px;
+      line-height:   1.5;
+    }
+    .qr-code-box {
+      display:         inline-flex;
+      align-items:     center;
+      justify-content: center;
+      padding:         12px;
+      border:          1px solid #eee;
+      border-radius:   14px;
+    }
+    .qr-modal-close {
+      margin-top:    18px;
+      background:    var(--bg);
+      border:        1px solid var(--border);
+      color:         var(--text2);
+      padding:       10px 24px;
+      border-radius: var(--radius);
+      cursor:        pointer;
+      font-size:     0.85rem;
+    }
+    .qr-modal-close:hover { background: var(--border); }
+
+    /* ─── МОБИЛЬНЫЙ ВИД ─── */
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+
+      .login-left {
+        width:   100%;
+        padding: 28px 20px;
+        min-height: unset;
+      }
+
+      .login-features { display: none; }
+
+      .login-brand-name { font-size: 1.5rem; }
+
+      .login-right {
+        padding: 24px 16px 40px;
+        align-items: flex-start;
+      }
+
+      .login-form-wrap {
+        padding: 24px 20px;
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ ЛЕВАЯ ПОЛОВИНА ═══ -->
+  <div class="login-left">
+    <canvas id="networkCanvas"></canvas>
+    <div class="login-brand">
+      <div class="login-logo-wrap">
+        <!-- Логотип SVG: книга с искрой -->
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none"
+             xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="10" width="26" height="32" rx="4"
+                fill="rgba(255,255,255,0.25)" stroke="white" stroke-width="2"/>
+          <rect x="10" y="6" width="26" height="32" rx="4"
+                fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="2"/>
+          <line x1="16" y1="16" x2="28" y2="16"
+                stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <line x1="16" y1="21" x2="28" y2="21"
+                stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <line x1="16" y1="26" x2="22" y2="26"
+                stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <!-- Искра -->
+          <path d="M34 8 L32 15 L38 12 L33 18 L36 11 L30 14 Z"
+                fill="#FFD700" stroke="#FFD700" stroke-width="0.5"
+                stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="login-brand-name" data-i18n="login.brandName">ЕдуПортал</div>
+      <div class="login-slogan">
+        <strong data-i18n="login.sloganTitle">Учись. Преподавай. Развивайся.</strong>
+        <span data-i18n="login.sloganText">Образовательная платформа нового поколения для работы с видео-уроками,
+        тестами и домашними заданиями.</span>
+      </div>
+
+      <div class="login-features">
+        <div class="login-feature">
+          <span class="login-feature-icon">🎬</span>
+          <span class="login-feature-text" data-i18n="login.feature1">Видео-уроки и VR/360° контент</span>
+        </div>
+        <div class="login-feature">
+          <span class="login-feature-icon">📝</span>
+          <span class="login-feature-text" data-i18n="login.feature2">Тесты с изображениями и оценки</span>
+        </div>
+        <div class="login-feature">
+          <span class="login-feature-icon">📊</span>
+          <span class="login-feature-text" data-i18n="login.feature3">Автоматический журнал оценок</span>
+        </div>
+        <div class="login-feature">
+          <span class="login-feature-icon">📁</span>
+          <span class="login-feature-text" data-i18n="login.feature4">Загрузка и проверка заданий</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ПРАВАЯ ПОЛОВИНА ═══ -->
+  <div class="login-right">
+    <div class="login-form-wrap">
+
+      <div class="login-form-header">
+        <h1 data-i18n="login.title">Вход в систему</h1>
+        <p data-i18n="login.subtitle">Введите свои учётные данные для входа</p>
+      </div>
+
+      <!-- Сообщение об ошибке -->
+      <div class="login-error hidden" id="loginError">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span id="loginErrorText" data-i18n="login.defaultError">Неверный логин или пароль</span>
+      </div>
+
+      <div class="login-form">
+
+        <!-- Логин -->
+        <div class="form-group">
+          <label for="username"><span data-i18n="login.username">Логин</span> <span class="required">*</span></label>
+          <input type="text" id="username" placeholder="Введите логин" data-i18n-placeholder="login.usernamePlaceholder"
+                 autocomplete="username" autofocus>
+        </div>
+
+        <!-- Пароль -->
+        <div class="form-group">
+          <label for="password"><span data-i18n="login.password">Пароль</span> <span class="required">*</span></label>
+          <div class="input-wrap">
+            <input type="password" id="password" placeholder="Введите пароль" data-i18n-placeholder="login.passwordPlaceholder"
+                   autocomplete="current-password">
+            <button class="input-suffix" type="button"
+                    onclick="togglePassword()" id="toggleBtn"
+                    title="Показать/скрыть пароль" data-i18n-title="login.togglePassword">
+              <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Кнопка входа -->
+        <button class="btn btn-primary login-btn" id="loginBtn"
+                onclick="doLogin()" data-i18n="login.submit">
+          Войти
+        </button>
+
+        <div style="text-align:center;margin-top:10px">
+          <a href="#" onclick="openForgotPasswordModal(event)" style="font-size:13px;color:var(--text2)" data-i18n="login.forgot">Забыли пароль?</a>
+        </div>
+
+        <!-- Открыть на телефоне -->
+        <button type="button" class="qr-login-btn" onclick="openPhoneQR()" data-i18n="login.qrButton">
+          📲 Открыть на телефоне (QR-код)
+        </button>
+
+      </div>
+
+      <div class="login-footer-note">
+        <span data-i18n="login.footerNote">Доступ только по приглашению администратора.</span><br>
+        <span data-i18n="login.footerNote2">Если у вас нет аккаунта — обратитесь к администратору системы.</span>
+      </div>
+
+    </div>
+
+    <!-- ═══ QR МОДАЛКА ═══ -->
+    <div class="qr-modal-overlay" id="qrModalOverlay">
+      <div class="qr-modal-card">
+        <h3 data-i18n="login.qrTitle">📲 Сканируй телефоном</h3>
+        <p data-i18n="login.qrText">
+          Наведи камеру телефона на QR-код — на телефоне откроется
+          эта же страница входа. Дальше просто залогинься и заходи в урок.
+        </p>
+        <div class="qr-code-box" id="qrCodeBox"></div>
+        <button class="qr-modal-close" onclick="closePhoneQR()" data-i18n="login.qrClose">Закрыть</button>
+      </div>
+    </div>
+
+    <div class="qr-modal-overlay" id="forgotModalOverlay">
+      <div class="qr-modal-card">
+        <h3 data-i18n="login.forgotTitle">🔑 Восстановление пароля</h3>
+        <p style="text-align:left" data-i18n="login.forgotText">
+          В системе нет автоматической отправки пароля на почту/телефон.
+          Введите свой логин — заявка попадёт администрации, и вам сообщат
+          новый пароль лично.
+        </p>
+        <div class="form-group" style="text-align:left;margin-top:12px">
+          <label for="forgotUsername" data-i18n="login.username">Логин</label>
+          <input type="text" id="forgotUsername" placeholder="Ваш логин" autocomplete="off">
+        </div>
+        <div id="forgotResult" style="font-size:13px;margin-top:8px"></div>
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="qr-modal-close" onclick="closeForgotPasswordModal()" style="flex:1" data-i18n="login.forgotCancel">Отмена</button>
+          <button class="btn btn-primary" id="forgotSubmitBtn" onclick="submitForgotPassword()" style="flex:1" data-i18n="login.forgotSubmit">Отправить заявку</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── Живая "сеть знаний" на канвасе — лёгкая, без внешних библиотек ───
+    (function() {
+      const canvas = document.getElementById('networkCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      let w, h, nodes;
+      function resize() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        w = canvas.width  = rect.width;
+        h = canvas.height = rect.height;
+        const count = Math.max(14, Math.round((w * h) / 22000));
+        nodes = Array.from({ length: count }, () => ({
+          x:  Math.random() * w,
+          y:  Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.18,
+          vy: (Math.random() - 0.5) * 0.18,
+          r:  Math.random() * 1.6 + 1
+        }));
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      function tick() {
+        ctx.clearRect(0, 0, w, h);
+        for (const n of nodes) {
+          n.x += n.vx; n.y += n.vy;
+          if (n.x < 0 || n.x > w) n.vx *= -1;
+          if (n.y < 0 || n.y > h) n.vy *= -1;
+        }
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const a = nodes[i], b = nodes[j];
+            const dx = a.x - b.x, dy = a.y - b.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const maxDist = 150;
+            if (dist < maxDist) {
+              ctx.strokeStyle = `rgba(255,255,255,${0.16 * (1 - dist / maxDist)})`;
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.stroke();
+            }
+          }
+        }
+        for (const n of nodes) {
+          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        if (!reduceMotion) requestAnimationFrame(tick);
+      }
+      tick();
+    })();
+
+    // ─── Проверяем: если уже залогинен — редиректим ───
+    (function() {
+      const token = sessionStorage.getItem('token');
+      const user  = JSON.parse(sessionStorage.getItem('user') || 'null');
+      if (token && user) {
+        redirectByRole(user.role);
+      }
+    })();
+
+    function redirectByRole(role) {
+      const map = {
+        admin:    'admin.html',
+        operator: 'operator.html',
+        teacher:  'teacher.html',
+        student:  'student.html'
+      };
+      window.location.href = map[role] || 'index.html';
+    }
+
+    // ─── Открыть на телефоне (QR) ───
+    let qrRendered = false;
+    function openPhoneQR() {
+      const box = document.getElementById('qrCodeBox');
+      if (!qrRendered) {
+        box.innerHTML = '';
+        new QRCode(box, {
+          text:         window.location.href,
+          width:        200,
+          height:       200,
+          colorDark:    '#1D1A47',
+          colorLight:   '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+        qrRendered = true;
+      }
+      document.getElementById('qrModalOverlay').classList.add('active');
+    }
+    function closePhoneQR() {
+      document.getElementById('qrModalOverlay').classList.remove('active');
+    }
+
+    // ─── Восстановление пароля (заявка администрации) ───
+    function openForgotPasswordModal(evt) {
+      if (evt) evt.preventDefault();
+      document.getElementById('forgotUsername').value = document.getElementById('username').value || '';
+      document.getElementById('forgotResult').innerHTML = '';
+      document.getElementById('forgotModalOverlay').classList.add('active');
+    }
+    function closeForgotPasswordModal() {
+      document.getElementById('forgotModalOverlay').classList.remove('active');
+    }
+    async function submitForgotPassword() {
+      const username = document.getElementById('forgotUsername').value.trim();
+      const resultEl = document.getElementById('forgotResult');
+      const btn = document.getElementById('forgotSubmitBtn');
+      if (!username) { resultEl.innerHTML = '<span style="color:var(--red)">Введите логин</span>'; return; }
+
+      btn.disabled = true;
+      btn.textContent = 'Отправляем...';
+      try {
+        const res = await fetch('/api/password-reset-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username })
+        });
+        const data = await res.json();
+        resultEl.innerHTML = `<span style="color:var(--teal)">${data.message || 'Заявка отправлена'}</span>`;
+        btn.textContent = 'Отправлено ✓';
+      } catch (e) {
+        resultEl.innerHTML = '<span style="color:var(--red)">Ошибка сети, попробуйте позже</span>';
+        btn.disabled = false;
+        btn.textContent = 'Отправить заявку';
+      }
+    }
+
+    // ─── Показать/скрыть пароль ───
+    function togglePassword() {
+      const input = document.getElementById('password');
+      const icon  = document.getElementById('eyeIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.innerHTML = `
+          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8
+                   a18.45 18.45 0 015.06-5.94"/>
+          <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8
+                   a18.5 18.5 0 01-2.16 3.19"/>
+          <line x1="1" y1="1" x2="23" y2="23"/>`;
+      } else {
+        input.type = 'password';
+        icon.innerHTML = `
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>`;
+      }
+    }
+
+    // ─── Показать ошибку ───
+    function showError(msg) {
+      const box  = document.getElementById('loginError');
+      const text = document.getElementById('loginErrorText');
+      text.textContent = msg;
+      box.classList.remove('hidden');
+
+      document.getElementById('username').classList.add('error');
+      document.getElementById('password').classList.add('error');
+    }
+
+    function hideError() {
+      document.getElementById('loginError').classList.add('hidden');
+      document.getElementById('username').classList.remove('error');
+      document.getElementById('password').classList.remove('error');
+    }
+
+    // ─── Вход ───
+    async function doLogin() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const btn      = document.getElementById('loginBtn');
+
+      hideError();
+
+      if (!username || !password) {
+        showError(i18nT('login.defaultError'));
+        return;
+      }
+
+      // Блокируем кнопку, показываем спиннер
+      btn.disabled  = true;
+      btn.innerHTML = `<span class="spinner"></span> ${i18nT('login.submitting')}`;
+
+      try {
+        const res  = await fetch('/api/login', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError(data.error || i18nT('login.defaultError'));
+          return;
+        }
+
+        // Сохраняем токен и данные пользователя
+        sessionStorage.setItem('token', data.token);
+        sessionStorage.setItem('user',  JSON.stringify({
+          id:        data.id,
+          username:  data.username,
+          full_name: data.full_name,
+          role:      data.role
+        }));
+
+        // Редирект по роли
+        redirectByRole(data.role);
+
+      } catch (e) {
+        showError('Не удалось подключиться к серверу. Убедитесь что сервер запущен.');
+      } finally {
+        btn.disabled  = false;
+        btn.innerHTML = i18nT('login.submit');
+      }
+    }
+
+    // ─── Вход по Enter ───
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    // ─── Сброс ошибки при вводе ───
+    ['username', 'password'].forEach(id => {
+      document.getElementById(id).addEventListener('input', hideError);
+    });
+  </script>
+</body>
+</html>

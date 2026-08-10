@@ -1,0 +1,11 @@
+dbs:
+  - path: ${DATA_DIR}/database.db
+    replicas:
+      - type: s3
+        bucket: ${R2_BUCKET}
+        path: db-backup
+        endpoint: ${R2_ENDPOINT}
+        access-key-id: ${R2_ACCESS_KEY_ID}
+        secret-access-key: ${R2_SECRET_ACCESS_KEY}
+        region: auto
+        sync-interval: 10s

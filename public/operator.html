@@ -1,0 +1,2359 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ЕдуПортал — Оператор</title>
+<link rel="stylesheet" href="shared.css">
+<script src="shared.js"></script>
+<script src="i18n.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<style>
+  .badge-operator { background: var(--amber-light); color: var(--amber-dark); }
+
+  .filter-tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .toolbar .search-box { flex: 1; min-width: 200px; }
+
+  .group-card {
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 16px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer;
+    transition: all var(--transition); margin-bottom: 12px;
+  }
+  .group-card:hover { border-color: var(--purple); box-shadow: var(--shadow-sm); }
+  .group-card .g-icon {
+    width: 44px; height: 44px; border-radius: 12px; background: var(--purple-light); color: var(--purple);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; font-size: 1.1rem;
+  }
+  .group-card .g-info { flex: 1; min-width: 0; }
+  .group-card .g-name { font-weight: 700; font-size: 1rem; }
+  .group-card .g-meta { color: var(--text2); font-size: 0.82rem; margin-top: 2px; }
+  .group-card .g-count { font-size: 0.8rem; color: var(--text2); white-space: nowrap; }
+
+  .fac-card {
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 16px 18px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;
+  }
+  .fac-card .f-info { flex: 1; }
+  .fac-card .f-name { font-weight: 700; }
+  .fac-card .f-desc { color: var(--text2); font-size: 0.82rem; margin-top: 2px; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px; color: var(--purple); font-weight: 600;
+    font-size: 0.88rem; cursor: pointer; margin-bottom: 16px; background: none; border: none;
+  }
+
+  .tabs-row { display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1.5px solid var(--border); }
+  .tabs-row button {
+    padding: 10px 16px; background: none; border: none; cursor: pointer; font-weight: 600;
+    color: var(--text2); font-size: 0.9rem; border-bottom: 2.5px solid transparent; margin-bottom: -1.5px;
+  }
+  .tabs-row button.active { color: var(--purple); border-color: var(--purple); }
+
+  .list-row {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--bg);
+    border-radius: var(--radius); margin-bottom: 8px;
+  }
+  .list-row .lr-main { flex: 1; }
+  .list-row .lr-title { font-weight: 600; font-size: 0.9rem; }
+  .list-row .lr-sub { font-size: 0.78rem; color: var(--text2); margin-top: 2px; }
+
+  .sched-day { margin-bottom: 22px; }
+  .sched-day h4 { margin-bottom: 10px; font-size: 0.95rem; color: var(--text2); }
+  .sched-item {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 8px; background: var(--surface);
+  }
+  .sched-item .st-time { font-weight: 700; color: var(--purple); min-width: 92px; font-size: 0.88rem; }
+  .sched-item .st-info { flex: 1; }
+  .sched-item .st-title { font-weight: 600; font-size: 0.9rem; }
+  .sched-item .st-sub { font-size: 0.78rem; color: var(--text2); margin-top: 2px; }
+
+  .select-inline { min-width: 160px; }
+
+  /* ─── ОРГСТРУКТУРА ─── */
+  .org-node-card:hover { transform: translateY(-2px); border-color: var(--purple); }
+  .org-search-item {
+    padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+  }
+  .org-search-item:hover { background: var(--surface); }
+  #orgBreadcrumb a { color: var(--purple); text-decoration: none; font-weight: 600; }
+  #orgBreadcrumb a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="app-layout">
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+        <rect x="6" y="10" width="26" height="32" rx="4" fill="var(--purple-light)" stroke="var(--purple)" stroke-width="2"/>
+        <rect x="10" y="6" width="26" height="32" rx="4" fill="var(--purple-light)" stroke="var(--purple)" stroke-width="2" opacity="0.6"/>
+        <line x1="16" y1="16" x2="28" y2="16" stroke="var(--purple)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="16" y1="21" x2="28" y2="21" stroke="var(--purple)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="16" y1="26" x2="22" y2="26" stroke="var(--purple)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M34 8 L32 15 L38 12 L33 18 L36 11 L30 14 Z" fill="var(--amber)" stroke="var(--amber)" stroke-width="0.5"/>
+      </svg>
+      <span class="sidebar-logo-text" data-i18n="login.brandName">ЕдуПортал</span>
+      <button class="sidebar-close-btn" onclick="closeSidebar()" aria-label="Закрыть меню" data-i18n-title="sidebar.close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="sidebar-user-name" id="sidebarName"><span data-i18n="role.operator">Оператор</span></div>
+      <div class="sidebar-user-role"><span class="badge badge-operator" id="sidebarRoleBadge"><span data-i18n="role.operator">Оператор</span></span></div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title"><span data-i18n="admin.management">Управление</span></div>
+      <button class="nav-item hidden" id="nav-back-admin" onclick="window.location.href='admin.html'">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+        </svg>
+        Назад в админ-панель
+      </button>
+      <button class="nav-item active" onclick="showSection('orgstructure')" id="nav-orgstructure">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+          <rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>
+        </svg>
+        <span data-i18n="nav.orgstructure">Оргструктура</span>
+      </button>
+      <button class="nav-item" onclick="showSection('faculties')" id="nav-faculties">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 10v6M2 10l10-5 10 5-10 5-10-5z"/><path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/>
+        </svg>
+        Факультеты (список)
+      </button>
+      <button class="nav-item" onclick="showSection('groups')" id="nav-groups">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+        </svg>
+        <span data-i18n="nav.groups">Группы</span>
+      </button>
+      <button class="nav-item" onclick="showSection('schedule')" id="nav-schedule">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span data-i18n="nav.schedule">Расписание</span>
+      </button>
+      <button class="nav-item" onclick="showSection('library')" id="nav-library">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+        </svg>
+        <span data-i18n="nav.library">Библиотека</span>
+      </button>
+      <button class="nav-item" onclick="showSection('performance')" id="nav-performance">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        <span data-i18n="nav.performance">Успеваемость</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('profile')" id="nav-profile">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span data-i18n="sidebar.profile">Мой профиль</span>
+      </button>
+
+      <div class="nav-divider"></div>
+
+      <button class="nav-item" onclick="doLogout()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span data-i18n="sidebar.logout">Выйти</span>
+      </button>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <header class="main-header">
+      <button class="hamburger" onclick="toggleSidebar()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <h1 id="pageTitle"><span data-i18n="org.faculties">Факультеты</span></h1>
+      <span class="badge badge-operator" id="headerRoleBadge"><span data-i18n="role.operator">Оператор</span></span>
+    </header>
+
+    <div class="page-body">
+
+      <!-- ═══ ОРГСТРУКТУРА: Факультет → Кафедра → Специальность → Группа ═══ -->
+      <section id="section-orgstructure">
+        <div class="toolbar" style="flex-wrap:wrap;gap:10px">
+          <div class="search-box" style="position:relative;flex:1;min-width:220px">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="search" id="orgSearchInput" placeholder="🔎 Умный поиск: факультет, кафедра, специальность, группа, студент..." data-i18n-placeholder="ph.smartSearch" oninput="onOrgSearchInput()">
+            <div id="orgSearchResults" class="hidden" style="position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--card-bg,#fff);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:420px;overflow-y:auto;z-index:50;padding:8px"></div>
+          </div>
+          <button class="btn btn-ghost" onclick="runOrgAiAnalysis()" id="orgAiAnalysisBtn">🤖 ИИ-анализ проблем</button>
+        </div>
+
+        <div id="orgBreadcrumb" class="mb-12" style="font-size:0.9rem;color:var(--text2)"></div>
+
+        <div id="orgSummaryCard" class="mb-20"></div>
+
+        <div id="orgAiAnalysisPanel" class="hidden mb-20"></div>
+
+        <div id="orgContent"><div class="skeleton skeleton-card"></div></div>
+      </section>
+
+      <!-- ═══ ФАКУЛЬТЕТЫ (старый плоский список) ═══ -->
+      <section id="section-faculties" class="hidden">
+        <div class="toolbar">
+          <div class="search-box">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="search" id="facSearch" placeholder="Поиск факультета..." data-i18n-placeholder="ph.searchFaculty" oninput="renderFaculties()">
+          </div>
+          <button class="btn btn-primary" onclick="openFacultyModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span data-i18n="grp.addFaculty">Добавить факультет</span>
+          </button>
+        </div>
+        <div id="facultiesList"><div class="skeleton skeleton-card"></div></div>
+      </section>
+
+      <!-- ═══ ГРУППЫ: список ═══ -->
+      <section id="section-groups" class="hidden">
+        <div id="groupsListView">
+          <div class="toolbar">
+            <div class="search-box">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input type="search" id="groupSearch" placeholder="Поиск группы..." data-i18n-placeholder="ph.searchGroup" oninput="renderGroups()">
+            </div>
+            <button class="btn btn-primary" onclick="openGroupModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span data-i18n="grp.create">Создать группу</span>
+            </button>
+          </div>
+          <div id="groupsList"><div class="skeleton skeleton-card"></div></div>
+        </div>
+
+        <!-- ═══ ГРУППА: детали ═══ -->
+        <div id="groupDetailView" class="hidden">
+          <button class="back-link" onclick="closeGroupDetail()">← Ко всем группам</button>
+
+          <div class="card mb-20">
+            <div class="card-body">
+              <div class="flex" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div>
+                  <h2 id="gd-name" style="margin-bottom:4px;">—</h2>
+                  <div class="g-meta" style="color:var(--text2); font-size:0.88rem;">
+                    Факультет: <span id="gd-faculty">—</span> · Куратор: <span id="gd-curator">—</span>
+                  </div>
+                </div>
+                <div class="flex gap-12">
+                  <button class="btn btn-ghost" onclick="openEditGroupModal()"><span data-i18n="grp.edit">Изменить</span></button>
+                  <button class="btn btn-danger" onclick="deleteGroupConfirm()"><span data-i18n="grp.delete">Удалить группу</span></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tabs-row">
+            <button class="active" onclick="showGroupTab('students')" id="gtab-students"><span data-i18n="grp.students">Студенты</span></button>
+            <button onclick="showGroupTab('teachers')" id="gtab-teachers"><span data-i18n="grp.teachersAndCourses">Учителя и курсы</span></button>
+          </div>
+
+          <div id="grouptab-students">
+            <div class="toolbar">
+              <select id="addStudentSelect" class="select-inline"><option value="">— Выберите студента —</option></select>
+              <button class="btn btn-primary" onclick="addStudentToGroup()"><span data-i18n="grp.enroll">Зачислить</span></button>
+            </div>
+            <div id="groupStudentsList"><div class="empty-state"><p><span data-i18n="common.loading">Загрузка...</span></p></div></div>
+          </div>
+
+          <div id="grouptab-teachers" class="hidden">
+            <div class="toolbar" style="flex-wrap:wrap;">
+              <select id="addTeacherSelect" class="select-inline" onchange="onAddTeacherChange()"><option value="">— Выберите учителя —</option></select>
+              <select id="addTeacherPlaylistSelect" class="select-inline"><option value="">— Выберите курс —</option></select>
+              <button class="btn btn-primary" onclick="addTeacherToGroup()"><span data-i18n="grp.assign">Назначить</span></button>
+            </div>
+            <p style="color:var(--text2); font-size:0.82rem; margin-bottom:12px;">
+              Назначение учителя и его курса даёт студентам этой группы доступ к плейлисту с уроками этого курса.
+            </p>
+            <div id="groupTeachersList"><div class="empty-state"><p><span data-i18n="common.loading">Загрузка...</span></p></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ РАСПИСАНИЕ ═══ -->
+      <section id="section-schedule" class="hidden">
+        <div class="toolbar">
+          <select id="scheduleGroupSelect" class="select-inline" onchange="loadSchedule()">
+            <option value="">— Выберите группу —</option>
+          </select>
+          <button class="btn btn-primary" onclick="openScheduleModal()" id="addScheduleBtn" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span data-i18n="sched.addLesson">Добавить занятие</span>
+          </button>
+        </div>
+        <div id="scheduleView"><div class="empty-state"><p><span data-i18n="sched.selectGroupToView">Выберите группу, чтобы увидеть расписание</span></p></div></div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: БИБЛИОТЕКА ─── -->
+      <section id="section-library" class="hidden">
+        <div id="libraryBooksDetail-view" class="hidden">
+          <div class="flex items-center gap-12 mb-20">
+            <button class="btn btn-ghost btn-sm" onclick="closePlaylistDetail()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+              </svg>
+              Назад к подборкам
+            </button>
+            <h2 id="libraryPlaylistDetailTitle"><span data-i18n="lib.collection">Подборка</span></h2>
+          </div>
+          <div class="flex justify-between items-center mb-16">
+            <p class="text-muted text-sm" id="libraryPlaylistDetailDesc"></p>
+            <button class="btn btn-primary btn-sm" onclick="openAddBookModal()">+ Добавить книгу</button>
+          </div>
+          <div id="libraryPlaylistDetailGrid" class="grid-3"></div>
+        </div>
+
+        <div id="libraryMain-view">
+          <div class="flex justify-between items-center mb-20">
+            <div>
+              <h2><span data-i18n="lib.bookLibrary">Библиотека книг</span></h2>
+              <p class="text-muted text-sm mt-8">
+                Загружайте книги и материалы, собирайте их в подборки, копируйте ссылку и передавайте учителям
+              </p>
+            </div>
+            <button class="btn btn-primary" onclick="openUploadBookModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span data-i18n="lib.uploadBook">Загрузить книгу</span>
+            </button>
+          </div>
+
+          <div class="form-group" style="max-width:360px">
+            <input type="text" id="libraryBookSearch" placeholder="Поиск по названию или автору..." data-i18n-placeholder="ph.searchByTitleAuthor"
+                   oninput="debouncedLoadLibraryBooks()">
+          </div>
+
+          <div id="libraryBooksGrid" class="grid-3 mb-24">
+            <div class="card"><div class="skeleton skeleton-text w-60"></div></div>
+          </div>
+
+          <div class="flex justify-between items-center mb-16 mt-24">
+            <h3 style="margin:0"><span data-i18n="lib.myCollections">Мои подборки</span></h3>
+            <button class="btn btn-ghost btn-sm" onclick="openCreatePlaylistModal()">+ Создать подборку</button>
+          </div>
+          <div id="libraryPlaylistsGrid" class="grid-3"></div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: УСПЕВАЕМОСТЬ ─── -->
+      <section id="section-performance" class="hidden">
+        <div class="mb-20">
+          <h2><span data-i18n="admin.groupPerformance">Успеваемость группы</span></h2>
+          <p class="text-muted text-sm mt-8"><span data-i18n="admin.groupPerformanceDesc">Средний балл, посещаемость и % пройденных уроков по всем курсам группы</span></p>
+        </div>
+        <div class="form-group" style="max-width:320px">
+          <label><span data-i18n="common.group">Группа</span></label>
+          <select id="perfGroupSelect" onchange="loadGroupPerformance()">
+            <option value="">— Выберите группу —</option>
+          </select>
+        </div>
+        <div id="performanceView">
+          <div class="empty-state">
+            <div class="empty-state-icon">📊</div>
+            <h3><span data-i18n="grp.select">Выберите группу</span></h3>
+            <p><span data-i18n="admin.seeSummaryPerformance">Чтобы увидеть сводную успеваемость по всем курсам</span></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── РАЗДЕЛ: МОЙ ПРОФИЛЬ ─── -->
+      <section id="section-profile" class="hidden">
+        <div class="mb-20">
+          <h2><span data-i18n="profile.title">Мой профиль</span></h2>
+          <p class="text-muted text-sm mt-8"><span data-i18n="profile.dataAndLogin">Ваши данные и настройки входа</span></p>
+        </div>
+        <div class="card mb-20" style="max-width:640px">
+          <h3 class="mb-16"><span data-i18n="profile.data">Данные</span></h3>
+          <div class="grid-2">
+            <div class="form-group">
+              <label><span data-i18n="common.fullName">ФИО</span></label>
+              <input type="text" id="profileFullName" disabled>
+              <span class="form-hint"><span data-i18n="profile.onlyAdminCanEditName">Изменить ФИО может только администратор</span></span>
+            </div>
+            <div class="form-group">
+              <label><span data-i18n="common.role">Роль</span></label>
+              <input type="text" id="profileRole" disabled>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="max-width:640px">
+          <h3 class="mb-16"><span data-i18n="profile.loginPassword">Логин и пароль</span></h3>
+          <p class="text-muted text-sm mb-16"><span data-i18n="profile.confirmPasswordToChange">Чтобы сменить логин или пароль, подтвердите текущий пароль.</span></p>
+          <div class="form-error hidden" id="credsError"><span id="credsErrorText"></span></div>
+          <div class="hidden mb-16" id="credsSuccess" style="color:var(--success,#16a34a);font-size:0.9rem">✓ Данные для входа обновлены</div>
+          <div class="form-group">
+            <label><span data-i18n="profile.currentPassword">Текущий пароль</span> <span class="required">*</span></label>
+            <input type="password" id="credsCurrentPassword" autocomplete="current-password">
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label><span data-i18n="profile.newLogin">Новый логин</span></label>
+              <input type="text" id="credsNewUsername" placeholder="Оставьте пустым, если не меняете" data-i18n-placeholder="ph.leaveEmptyIfUnchanged" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label><span data-i18n="profile.newPassword">Новый пароль</span></label>
+              <input type="password" id="credsNewPassword" placeholder="Минимум 6 символов" data-i18n-placeholder="ph.min6chars" autocomplete="new-password">
+            </div>
+          </div>
+          <button class="btn btn-primary" id="credsSaveBtn" onclick="saveMyCredentials()"><span data-i18n="profile.saveLoginPassword">Сохранить логин и пароль</span></button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ФАКУЛЬТЕТ ═══ -->
+<div class="modal-overlay hidden" id="facultyModal" onclick="closeOnOverlay(event,'facultyModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="facultyModalTitle"><span data-i18n="grp.addFaculty">Добавить факультет</span></h2>
+      <button class="btn-icon" onclick="closeModal('facultyModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="facultyId">
+      <div class="form-group">
+        <label><span data-i18n="common.name">Название</span> <span class="required">*</span></label>
+        <input type="text" id="facultyName" placeholder="Например: Факультет информационных технологий" data-i18n-placeholder="ph.facultyExample">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="common.description">Описание</span></label>
+        <textarea id="facultyDesc" rows="3" placeholder="Необязательно" data-i18n-placeholder="ph.optional"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('facultyModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" onclick="saveFaculty()"><span data-i18n="common.save">Сохранить</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: КАФЕДРА / СПЕЦИАЛЬНОСТЬ (универсальная для оргструктуры) ═══ -->
+<div class="modal-overlay hidden" id="orgEntityModal" onclick="closeOnOverlay(event,'orgEntityModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="orgEntityModalTitle"><span data-i18n="common.add">Добавить</span></h2>
+      <button class="btn-icon" onclick="closeModal('orgEntityModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="orgEntityType">
+      <input type="hidden" id="orgEntityId">
+      <input type="hidden" id="orgEntityParentId">
+      <div class="form-group">
+        <label><span data-i18n="common.name">Название</span> <span class="required">*</span></label>
+        <input type="text" id="orgEntityName" placeholder="Например: Кафедра программной инженерии" data-i18n-placeholder="ph.departmentExample">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="common.description">Описание</span></label>
+        <textarea id="orgEntityDesc" rows="3" placeholder="Необязательно" data-i18n-placeholder="ph.optional"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('orgEntityModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" onclick="saveOrgEntity()"><span data-i18n="common.save">Сохранить</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ГРУППА ВНУТРИ СПЕЦИАЛЬНОСТИ (с курсом 1-6) ═══ -->
+<div class="modal-overlay hidden" id="orgGroupModal" onclick="closeOnOverlay(event,'orgGroupModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="orgGroupModalTitle"><span data-i18n="grp.create">Создать группу</span></h2>
+      <button class="btn-icon" onclick="closeModal('orgGroupModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="orgGroupId">
+      <input type="hidden" id="orgGroupSpecialtyId">
+      <div class="form-group">
+        <label><span data-i18n="grp.name">Название группы</span> <span class="required">*</span></label>
+        <input type="text" id="orgGroupName" placeholder="Например: ПО-21-1" data-i18n-placeholder="ph.groupCodeExample">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="grp.course">Курс (год обучения)</span> <span class="required">*</span></label>
+        <select id="orgGroupCourse" class="select-inline" style="width:100%">
+          <option value="1">1 курс</option>
+          <option value="2">2 курс</option>
+          <option value="3">3 курс</option>
+          <option value="4">4 курс</option>
+          <option value="5">5 курс</option>
+          <option value="6">6 курс</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="grp.curatorOptional">Куратор (учитель, необязательно)</span></label>
+        <select id="orgGroupCurator" class="select-inline" style="width:100%">
+          <option value="">— Без куратора —</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('orgGroupModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" onclick="saveOrgGroup()"><span data-i18n="common.save">Сохранить</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ГРУППА (старое) ═══ -->
+<div class="modal-overlay hidden" id="groupModal" onclick="closeOnOverlay(event,'groupModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="groupModalTitle"><span data-i18n="grp.create">Создать группу</span></h2>
+      <button class="btn-icon" onclick="closeModal('groupModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="groupId">
+      <div class="form-group">
+        <label><span data-i18n="grp.name">Название группы</span> <span class="required">*</span></label>
+        <input type="text" id="groupName" placeholder="Например: ИТ-21" data-i18n-placeholder="ph.specialtyCodeExample">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="admin.faculty">Факультет</span> <span class="required">*</span></label>
+        <select id="groupFaculty"></select>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="grp.curatorFromTeachers">Куратор (из числа преподавателей)</span></label>
+        <select id="groupCurator"><option value="">— Без куратора —</option></select>
+      </div>
+      <div class="form-error hidden" id="groupError"><span id="groupErrorText"></span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('groupModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" onclick="saveGroup()"><span data-i18n="common.save">Сохранить</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: РАСПИСАНИЕ ═══ -->
+<div class="modal-overlay hidden" id="scheduleModal" onclick="closeOnOverlay(event,'scheduleModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="sched.addLesson">Добавить занятие</span></h2>
+      <button class="btn-icon" onclick="closeModal('scheduleModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label><span data-i18n="day.name">День недели</span> <span class="required">*</span></label>
+        <select id="schedDay">
+          <option value="1"><span data-i18n="day.mon">Понедельник</span></option><option value="2"><span data-i18n="day.tue">Вторник</span></option>
+          <option value="3"><span data-i18n="day.wed">Среда</span></option><option value="4"><span data-i18n="day.thu">Четверг</span></option>
+          <option value="5"><span data-i18n="day.fri">Пятница</span></option><option value="6"><span data-i18n="day.sat">Суббота</span></option><option value="7"><span data-i18n="day.sun">Воскресенье</span></option>
+        </select>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label><span data-i18n="time.start">Начало</span> <span class="required">*</span></label>
+          <input type="time" id="schedStart" value="09:00">
+        </div>
+        <div class="form-group">
+          <label><span data-i18n="time.end">Конец</span> <span class="required">*</span></label>
+          <input type="time" id="schedEnd" value="09:45">
+        </div>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="sched.teacherCourse">Учитель / курс</span></label>
+        <select id="schedAssignment"><option value="">— Не выбрано (доп. занятие) —</option></select>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="sched.lessonName">Название занятия</span></label>
+        <input type="text" id="schedTitle" placeholder="Заполнится автоматически из курса, можно изменить" data-i18n-placeholder="ph.autoFillFromCourse">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="sched.room">Аудитория</span></label>
+        <input type="text" id="schedRoom" placeholder="Например: 204" data-i18n-placeholder="ph.roomExample">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('scheduleModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" onclick="saveSchedule()"><span data-i18n="common.add">Добавить</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ЗАГРУЗИТЬ КНИГУ В БИБЛИОТЕКУ ═══ -->
+<div class="modal-overlay hidden" id="uploadBookModal" onclick="closeOnOverlay(event,'uploadBookModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="lib.uploadBook">Загрузить книгу</span></h2>
+      <button class="btn-icon" onclick="closeModal('uploadBookModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label><span data-i18n="common.name">Название</span> <span class="required">*</span></label>
+        <input type="text" id="bookTitle" placeholder="Например: Алгебра. Учебник для 9 класса" data-i18n-placeholder="ph.bookTitleExample">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="lib.author">Автор</span></label>
+        <input type="text" id="bookAuthor" placeholder="Автор (необязательно)" data-i18n-placeholder="ph.authorOptional">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="lib.category">Категория</span></label>
+        <input type="text" id="bookCategory" placeholder="Например: Математика (необязательно)" data-i18n-placeholder="ph.subjectExampleOptional">
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="common.description">Описание</span></label>
+        <textarea id="bookDescription" rows="2" placeholder="Краткое описание (необязательно)" data-i18n-placeholder="ph.shortDescOptional"></textarea>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="common.bookFile">Файл книги</span> <span class="required">*</span></label>
+        <div class="file-drop-zone" id="bookFileDrop"
+             ondragover="onDragOver(event,'bookFileDrop')"
+             ondragleave="onDragLeave('bookFileDrop')"
+             ondrop="onDrop(event,'bookFile','bookFileDrop')">
+          <input type="file" id="bookFile" accept=".pdf,.doc,.docx,.epub,.fb2,.txt,.rtf"
+                 onchange="onFileSelected('bookFile','bookFileDrop','bookFileSel')">
+          <span class="drop-icon">📚</span>
+          <div class="drop-title"><span data-i18n="lib.dragFile">Перетащите файл или нажмите для выбора</span></div>
+          <div class="drop-hint">PDF, DOC/DOCX, EPUB, FB2, TXT, RTF — до 500 МБ</div>
+        </div>
+        <div class="file-selected hidden" id="bookFileSel">
+          <span>📚</span>
+          <span class="file-name" id="bookFileSel-name"></span>
+          <button class="btn-remove" onclick="clearFile('bookFile','bookFileDrop','bookFileSel')">✕</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label><span data-i18n="lib.cover">Обложка (изображение, необязательно)</span></label>
+        <div class="file-drop-zone" id="bookCoverDrop"
+             ondragover="onDragOver(event,'bookCoverDrop')"
+             ondragleave="onDragLeave('bookCoverDrop')"
+             ondrop="onDrop(event,'bookCover','bookCoverDrop')">
+          <input type="file" id="bookCover" accept=".jpg,.jpeg,.png,.webp"
+                 onchange="onFileSelected('bookCover','bookCoverDrop','bookCoverSel')">
+          <span class="drop-icon">🖼️</span>
+          <div class="drop-title"><span data-i18n="lib.dragImage">Перетащите изображение или нажмите для выбора</span></div>
+          <div class="drop-hint">JPG, PNG, WEBP</div>
+        </div>
+        <div class="file-selected hidden" id="bookCoverSel">
+          <span>🖼️</span>
+          <span class="file-name" id="bookCoverSel-name"></span>
+          <button class="btn-remove" onclick="clearFile('bookCover','bookCoverDrop','bookCoverSel')">✕</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0;margin-top:12px">
+        <label><span data-i18n="lib.whoCanSee">Кто может видеть книгу</span></label>
+        <select id="bookAccessMode">
+          <option value="private">Приватно — открою доступ отдельным людям/группам после загрузки</option>
+          <option value="public">Всем — видят все пользователи портала</option>
+          <option value="link">Только по ссылке — не показывается в общем списке, открыть можно только по прямой ссылке</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('uploadBookModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" id="uploadBookBtn" onclick="submitUploadBook()"><span data-i18n="common.upload">Загрузить</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ДОСТУП К КНИГЕ ═══ -->
+<div class="modal-overlay hidden" id="bookAccessModal" onclick="closeOnOverlay(event,'bookAccessModal')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="lib.bookAccess">Доступ к книге:</span> <span id="bookAccessTitle"></span></h2>
+      <button class="btn-icon" onclick="closeModal('bookAccessModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label><span data-i18n="lib.accessMode">Режим доступа</span></label>
+        <select id="bookAccessModeSelect" onchange="changeAccessMode()">
+          <option value="private">Приватно — по правилам ниже</option>
+          <option value="public"><span data-i18n="lib.allPortalUsers">Всем пользователям портала</span></option>
+          <option value="link"><span data-i18n="lib.linkOnly">Только по прямой ссылке (не показывается в списке)</span></option>
+        </select>
+      </div>
+
+      <div id="bookAccessGrantsWrap">
+        <div class="nav-divider" style="margin:14px 0"></div>
+        <label><span data-i18n="lib.openAccess">Открыть доступ</span></label>
+        <div class="flex gap-8 mb-8">
+          <select id="grantTargetType" onchange="renderGrantPickerResults()" style="max-width:160px">
+            <option value="student"><span data-i18n="lib.toStudent">Студенту</span></option>
+            <option value="group"><span data-i18n="lib.toGroup">Группе</span></option>
+            <option value="teacher"><span data-i18n="lib.toTeacher">Учителю</span></option>
+          </select>
+          <input type="text" id="grantSearch" placeholder="Поиск..." data-i18n-placeholder="ph.searchDots" oninput="renderGrantPickerResults()" style="flex:1">
+        </div>
+        <div id="grantPickerResults" style="max-height:160px;overflow:auto;margin-bottom:14px"></div>
+
+        <label><span data-i18n="lib.whoHasAccess">Кому уже открыт доступ</span></label>
+        <div id="bookAccessGrantsList" style="max-height:200px;overflow:auto"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('bookAccessModal')"><span data-i18n="common.done">Готово</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: СОЗДАТЬ ПОДБОРКУ ═══ -->
+<div class="modal-overlay hidden" id="createPlaylistLibModal" onclick="closeOnOverlay(event,'createPlaylistLibModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="lib.newPlaylist">Новая подборка</span></h2>
+      <button class="btn-icon" onclick="closeModal('createPlaylistLibModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label><span data-i18n="lib.playlistName">Название подборки</span> <span class="required">*</span></label>
+        <input type="text" id="libPlaylistTitle" placeholder="Например: Литература 8 класс" data-i18n-placeholder="ph.subjectGradeExample">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label><span data-i18n="common.description">Описание</span></label>
+        <textarea id="libPlaylistDescription" rows="2" placeholder="Необязательно" data-i18n-placeholder="ph.optional"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('createPlaylistLibModal')"><span data-i18n="common.cancel">Отмена</span></button>
+      <button class="btn btn-primary" onclick="submitCreatePlaylist()"><span data-i18n="common.create">Создать</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ МОДАЛКА: ДОБАВИТЬ КНИГУ В ПОДБОРКУ ═══ -->
+<div class="modal-overlay hidden" id="addBookModal" onclick="closeOnOverlay(event,'addBookModal')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 class="modal-title"><span data-i18n="lib.addBookToPlaylist">Добавить книгу в подборку</span></h2>
+      <button class="btn-icon" onclick="closeModal('addBookModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <input type="text" id="addBookSearch" placeholder="Поиск книги..." data-i18n-placeholder="ph.searchBook" oninput="renderAddBookList()">
+      </div>
+      <div id="addBookList" style="max-height:360px;overflow:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addBookModal')"><span data-i18n="common.done">Готово</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// ИНИЦИАЛИЗАЦИЯ
+// ─────────────────────────────────────────────
+const token = sessionStorage.getItem('token');
+const user  = JSON.parse(sessionStorage.getItem('user') || 'null');
+
+if (!token || !user || !['operator', 'admin'].includes(user.role)) {
+  window.location.href = 'index.html';
+}
+document.getElementById('sidebarName').textContent = user.full_name || user.username;
+
+const ROLE_LABELS = { admin: 'Администратор', operator: 'Оператор' };
+const roleLabel = ROLE_LABELS[user.role] || user.role;
+document.getElementById('sidebarRoleBadge').textContent = roleLabel;
+document.getElementById('headerRoleBadge').textContent = roleLabel;
+if (user.role === 'admin') {
+  document.getElementById('sidebarRoleBadge').className = 'badge badge-admin';
+  document.getElementById('headerRoleBadge').className = 'badge badge-admin';
+  document.getElementById('nav-back-admin').classList.remove('hidden');
+}
+
+let allFaculties = [];
+let allGroups    = [];
+let allUsers      = [];
+let allPlaylists  = [];
+let currentGroup  = null;
+
+async function api(method, path, body = null) {
+  const opts = { method, headers: { 'Authorization': `Bearer ${token}` } };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  const res = await fetch(path, opts);
+  if (res.status === 401) { sessionStorage.clear(); window.location.href = 'index.html'; }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Ошибка запроса');
+  return data;
+}
+
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
+  toast.innerHTML = `<span>${icons[type] || '✓'}</span> ${message}`;
+  container.appendChild(toast);
+  setTimeout(() => toast.classList.add('show'), 10);
+  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3500);
+}
+
+function showSection(name) {
+  closeSidebar(); // на мобильном меню должно закрываться при переходе в раздел
+  document.querySelectorAll('[id^="section-"]').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`section-${name}`).classList.remove('hidden');
+  document.getElementById(`nav-${name}`).classList.add('active');
+  currentSectionName = name;
+  const titleKeys = { orgstructure: 'nav.orgstructure', faculties: 'nav.faculties', groups: 'nav.groups', schedule: 'nav.schedule', library: 'nav.library', performance: 'nav.performance', profile: 'sidebar.profile' };
+  document.getElementById('pageTitle').textContent = titleKeys[name] ? i18nT(titleKeys[name]) : name;
+  if (name === 'orgstructure') initOrgStructure();
+  if (name === 'faculties') loadFaculties();
+  if (name === 'groups') { closeGroupDetail(); loadGroups(); }
+  if (name === 'schedule') loadScheduleGroups();
+  if (name === 'library') { loadLibraryBooks(); loadLibraryPlaylists(); }
+  if (name === 'performance') fillPerfGroupSelect();
+  if (name === 'profile') loadMyProfile();
+}
+let currentSectionName = 'orgstructure';
+document.addEventListener('i18n:changed', () => {
+  const keys = { orgstructure: 'nav.orgstructure', faculties: 'nav.faculties', groups: 'nav.groups', schedule: 'nav.schedule', library: 'nav.library', performance: 'nav.performance', profile: 'sidebar.profile' };
+  const key = keys[currentSectionName];
+  if (key) document.getElementById('pageTitle').textContent = i18nT(key);
+});
+
+// ─────────────────────────────────────────────
+// МОЙ ПРОФИЛЬ
+// ─────────────────────────────────────────────
+function loadMyProfile() {
+  document.getElementById('profileFullName').value = user.full_name || user.username;
+  document.getElementById('profileRole').value = roleLabel;
+}
+
+async function saveMyCredentials() {
+  const current_password = document.getElementById('credsCurrentPassword').value;
+  const new_username = document.getElementById('credsNewUsername').value.trim();
+  const new_password = document.getElementById('credsNewPassword').value;
+  const errBox  = document.getElementById('credsError');
+  const errText = document.getElementById('credsErrorText');
+  const okBox   = document.getElementById('credsSuccess');
+  const btn = document.getElementById('credsSaveBtn');
+  errBox.classList.add('hidden');
+  okBox.classList.add('hidden');
+
+  if (!current_password) {
+    errText.textContent = 'Введите текущий пароль для подтверждения';
+    errBox.classList.remove('hidden');
+    return;
+  }
+  if (!new_username && !new_password) {
+    errText.textContent = 'Укажите новый логин или новый пароль';
+    errBox.classList.remove('hidden');
+    return;
+  }
+  if (new_password && new_password.length < 6) {
+    errText.textContent = 'Новый пароль минимум 6 символов';
+    errBox.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Сохраняем...';
+  try {
+    const res = await api('PUT', '/api/me/credentials', { current_password, new_username, new_password });
+    if (res.error) {
+      errText.textContent = res.error;
+      errBox.classList.remove('hidden');
+      return;
+    }
+    sessionStorage.setItem('token', res.token);
+    sessionStorage.setItem('user', JSON.stringify({ id: res.id, username: res.username, full_name: res.full_name, role: res.role }));
+    okBox.classList.remove('hidden');
+    document.getElementById('credsCurrentPassword').value = '';
+    document.getElementById('credsNewPassword').value = '';
+    showToast(i18nT('toast.admin.credentialsUpdated'));
+    setTimeout(() => location.reload(), 900);
+  } catch (e) {
+    errText.textContent = 'Ошибка сети';
+    errBox.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Сохранить логин и пароль';
+  }
+}
+
+// ─────────────────────────────────────────────
+// УСПЕВАЕМОСТЬ ГРУППЫ (в процентах)
+// ─────────────────────────────────────────────
+async function fillPerfGroupSelect() {
+  const sel = document.getElementById('perfGroupSelect');
+  if (sel.dataset.filled) return;
+  const groups = await api('GET', '/api/groups');
+  sel.innerHTML = '<option value="">— Выберите группу —</option>' +
+    groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  sel.dataset.filled = '1';
+}
+
+function perfBar(pct) {
+  if (pct === null || pct === undefined) return `<span class="text-muted text-sm"><span data-i18n="grp.noData">нет данных</span></span>`;
+  const color = pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
+  return `
+    <div class="flex items-center gap-8">
+      <div style="flex:1;min-width:80px;height:10px;background:var(--border);border-radius:6px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:6px"></div>
+      </div>
+      <span style="font-weight:700;color:${color};min-width:40px;text-align:right">${pct}%</span>
+    </div>`;
+}
+
+async function loadGroupPerformance() {
+  const groupId = document.getElementById('perfGroupSelect').value;
+  const el = document.getElementById('performanceView');
+  if (!groupId) return;
+  el.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  try {
+    const data = await api('GET', `/api/groups/${groupId}/performance`);
+    if (data.error) { el.innerHTML = `<div class="empty-state"><p>${data.error}</p></div>`; return; }
+    if (!data.students_count) { el.innerHTML = `<div class="empty-state"><p><span data-i18n="grp.noStudentsInGroup">В этой группе нет студентов</span></p></div>`; return; }
+
+    const atRisk = data.student_summary.filter(s =>
+      (s.overall_grade_pct !== null && s.overall_grade_pct < 60) ||
+      (s.overall_attendance_pct !== null && s.overall_attendance_pct < 70) ||
+      s.missed_deadlines_total > 0
+    );
+
+    el.innerHTML = `
+      <div class="mb-20" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+        <div class="card" style="padding:16px">
+          <div class="text-muted text-sm"><span data-i18n="grp.avgGrade">Средний балл группы</span></div>
+          <div style="font-size:28px;font-weight:800;margin-top:4px">${data.group_avg_grade_pct ?? '—'}%</div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div class="text-muted text-sm"><span data-i18n="grp.avgAttendance">Средняя посещаемость</span></div>
+          <div style="font-size:28px;font-weight:800;margin-top:4px">${data.group_avg_attendance_pct ?? '—'}%</div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div class="text-muted text-sm"><span data-i18n="grp.coursesCount">Курсов у группы</span></div>
+          <div style="font-size:28px;font-weight:800;margin-top:4px">${data.courses_count}</div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div class="text-muted text-sm"><span data-i18n="grp.atRiskStudents">Студентов в зоне риска</span></div>
+          <div style="font-size:28px;font-weight:800;margin-top:4px;color:${atRisk.length ? '#ef4444' : '#22c55e'}">${atRisk.length}</div>
+        </div>
+      </div>
+
+      <h3 class="mb-12"><span data-i18n="grp.byStudents">По студентам</span></h3>
+      <div class="table-wrap mb-20">
+        <table>
+          <thead><tr><th><span data-i18n="common.student">Студент</span></th><th style="min-width:160px"><span data-i18n="common.avgGrade">Средний балл</span></th><th style="min-width:160px"><span data-i18n="common.attendance">Посещаемость</span></th><th><span data-i18n="common.missedByDeadline">Пропусков по дедлайну</span></th></tr></thead>
+          <tbody>
+            ${data.student_summary.map(s => `
+              <tr style="${((s.overall_grade_pct !== null && s.overall_grade_pct < 60) || (s.overall_attendance_pct !== null && s.overall_attendance_pct < 70)) ? 'background:rgba(239,68,68,0.06)' : ''}">
+                <td>${s.student.full_name || s.student.username}</td>
+                <td>${perfBar(s.overall_grade_pct)}</td>
+                <td>${perfBar(s.overall_attendance_pct)}</td>
+                <td>${s.missed_deadlines_total > 0 ? `<span class="journal-badge journal-badge-absence">${s.missed_deadlines_total}</span>` : '—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="mb-12"><span data-i18n="grp.byCourses">По курсам</span></h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th><span data-i18n="common.course">Курс</span></th><th><span data-i18n="common.teacher">Преподаватель</span></th><th><span data-i18n="common.lessonsCount">Уроков</span></th><th style="min-width:160px"><span data-i18n="grp.avgGradeShort">Ср. балл</span></th><th style="min-width:160px"><span data-i18n="common.attendance">Посещаемость</span></th></tr></thead>
+          <tbody>
+            ${data.courses.map(c => `
+              <tr>
+                <td>${c.playlist_title}</td>
+                <td>${c.teacher_name}</td>
+                <td>${c.lessons_total}</td>
+                <td>${perfBar(c.avg_grade_pct)}</td>
+                <td>${perfBar(c.avg_attendance_pct)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state"><p>Ошибка загрузки: ${e.message}</p></div>`;
+  }
+}
+
+// ═════════════════════════════════════════════
+// ОРГСТРУКТУРА: Факультет → Кафедра → Специальность → Группа
+// Кликабельная навигация с накоплением в orgPath (хлебные крошки),
+// взвешенная успеваемость на каждом уровне, поиск (с ИИ) и ИИ-анализ.
+// ═════════════════════════════════════════════
+let orgTree = null;
+let orgPath = []; // [{level:'faculty'|'department'|'specialty', id, name}, ...]
+
+async function initOrgStructure() {
+  await loadOrgTree();
+}
+
+async function loadOrgTree() {
+  const content = document.getElementById('orgContent');
+  content.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  try {
+    orgTree = await api('GET', '/api/org/tree');
+    renderOrgView();
+  } catch (e) {
+    content.innerHTML = `<div class="empty-state"><p>Ошибка загрузки: ${e.message}</p></div>`;
+  }
+}
+
+function orgPctColor(pct) {
+  if (pct === null || pct === undefined) return '#94a3b8';
+  return pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
+}
+function orgBadgeSmall(pct, label) {
+  if (pct === null || pct === undefined) return `<span class="text-muted text-sm">${label}: —</span>`;
+  return `<span class="text-sm" style="font-weight:700;color:${orgPctColor(pct)}">${label}: ${pct}%</span>`;
+}
+
+function orgCard(opts) {
+  // opts: {title, subtitle, studentsCount, gradePct, attPct, onClick, extraActions}
+  return `
+    <div class="card org-node-card" style="padding:16px;cursor:pointer;transition:transform .12s" onclick="${opts.onClick}">
+      <div class="flex justify-between items-start" style="gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${opts.title}</div>
+          ${opts.subtitle ? `<div class="text-muted text-sm mt-4">${opts.subtitle}</div>` : ''}
+        </div>
+        ${opts.extraActions || ''}
+      </div>
+      <div class="flex gap-12 mt-12" style="flex-wrap:wrap">
+        ${orgBadgeSmall(opts.gradePct, 'Балл')}
+        ${orgBadgeSmall(opts.attPct, 'Посещ.')}
+        <span class="text-muted text-sm">👥 ${opts.studentsCount ?? 0}</span>
+      </div>
+    </div>`;
+}
+
+function orgTotalsCard(node, label) {
+  return `
+    <div class="card mb-20" style="padding:18px;background:linear-gradient(135deg, rgba(124,58,237,0.08), rgba(34,211,238,0.06))">
+      <div class="text-muted text-sm mb-8">${label}</div>
+      <div class="flex gap-20" style="flex-wrap:wrap">
+        <div><div style="font-size:1.6rem;font-weight:800">${node.avg_grade_pct ?? '—'}%</div><div class="text-muted text-sm"><span data-i18n="common.avgGrade">Средний балл</span></div></div>
+        <div><div style="font-size:1.6rem;font-weight:800">${node.avg_attendance_pct ?? '—'}%</div><div class="text-muted text-sm"><span data-i18n="common.attendance">Посещаемость</span></div></div>
+        <div><div style="font-size:1.6rem;font-weight:800">${node.students_count ?? 0}</div><div class="text-muted text-sm"><span data-i18n="grp.studentsCount">Студентов</span></div></div>
+      </div>
+    </div>`;
+}
+
+function renderOrgBreadcrumb() {
+  const el = document.getElementById('orgBreadcrumb');
+  const crumbs = ['<a href="javascript:void(0)" onclick="orgGoTo(0)">🏠 Вся организация</a>'];
+  orgPath.forEach((p, i) => crumbs.push(`<a href="javascript:void(0)" onclick="orgGoTo(${i + 1})">${p.name}</a>`));
+  el.innerHTML = crumbs.join(' <span style="opacity:.5">›</span> ');
+}
+function orgGoTo(index) {
+  orgPath = orgPath.slice(0, index);
+  renderOrgView();
+}
+function orgDrill(level, id, name) {
+  orgPath.push({ level, id, name });
+  renderOrgView();
+}
+
+function findFacultyNode(id) { return orgTree.faculties.find(f => f.id === id); }
+function findDeptNode(id) { for (const f of orgTree.faculties) { const d = f.departments.find(x => x.id === id); if (d) return d; } return null; }
+function findSpecNode(id) { for (const f of orgTree.faculties) for (const d of f.departments) { const s = d.specialties.find(x => x.id === id); if (s) return s; } return null; }
+
+function renderOrgView() {
+  document.getElementById('orgAiAnalysisPanel').classList.add('hidden');
+  renderOrgBreadcrumb();
+  const content = document.getElementById('orgContent');
+  const summary = document.getElementById('orgSummaryCard');
+
+  if (!orgTree) { content.innerHTML = '<div class="skeleton skeleton-card"></div>'; return; }
+
+  // Уровень 0: все факультеты
+  if (orgPath.length === 0) {
+    summary.innerHTML = orgTotalsCard(orgTree.totals, '📊 Итог по всей организации (взвешенно по числу студентов)');
+    const cards = orgTree.faculties.map(f => orgCard({
+      title: `🏛 ${f.name}`,
+      subtitle: `${f.departments.length} кафедр`,
+      studentsCount: f.students_count, gradePct: f.avg_grade_pct, attPct: f.avg_attendance_pct,
+      onClick: `orgDrill('faculty', ${f.id}, '${escapeHtmlAttr(f.name)}')`
+    })).join('');
+
+    const unassigned = orgTree.unassigned_groups.length
+      ? `<div class="card mt-20" style="padding:16px;border:1.5px dashed var(--border)">
+           <div class="font-bold mb-8">⚠️ Группы без специальности (${orgTree.unassigned_groups.length})</div>
+           <div class="text-muted text-sm mb-8">Созданы до перехода на новую структуру — назначьте им специальность и курс через «Группы (список)».</div>
+           <div class="flex gap-8" style="flex-wrap:wrap">${orgTree.unassigned_groups.map(g => `<span class="badge">${g.name}</span>`).join('')}</div>
+         </div>` : '';
+
+    content.innerHTML = `
+      <div class="flex justify-between items-center mb-12">
+        <h3 style="margin:0"><span data-i18n="org.faculties">Факультеты</span></h3>
+        <button class="btn btn-ghost btn-sm" onclick="openOrgEntityModal('faculty', null)">+ Факультет</button>
+      </div>
+      <div class="grid-3" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">${cards || '<div class="empty-state"><p><span data-i18n="grp.noFacultiesYet">Пока нет факультетов</span></p></div>'}</div>
+      ${unassigned}
+    `;
+    return;
+  }
+
+  // Уровень 1: кафедры внутри факультета
+  if (orgPath.length === 1) {
+    const f = findFacultyNode(orgPath[0].id);
+    if (!f) { content.innerHTML = '<div class="empty-state"><p><span data-i18n="org.facultyNotFound">Факультет не найден</span></p></div>'; return; }
+    summary.innerHTML = orgTotalsCard(f, `📊 Итог по факультету «${escapeHtml(f.name)}»`);
+    const cards = f.departments.map(d => orgCard({
+      title: `🏢 ${d.name}`,
+      subtitle: `${d.specialties.length} специальностей`,
+      studentsCount: d.students_count, gradePct: d.avg_grade_pct, attPct: d.avg_attendance_pct,
+      onClick: `orgDrill('department', ${d.id}, '${escapeHtmlAttr(d.name)}')`
+    })).join('');
+    content.innerHTML = `
+      <div class="flex justify-between items-center mb-12">
+        <h3 style="margin:0">Кафедры факультета «${f.name}»</h3>
+        <div class="flex gap-8">
+          <button class="btn btn-ghost btn-sm" onclick="openOrgEntityModal('faculty', null, {id:${f.id}, name:'${escapeHtmlAttr(f.name)}'})">✎ Факультет</button>
+          <button class="btn btn-primary btn-sm" onclick="openOrgEntityModal('department', ${f.id})">+ Кафедра</button>
+        </div>
+      </div>
+      <div class="grid-3" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">${cards || '<div class="empty-state"><p><span data-i18n="org.noDepartmentsYet">Пока нет кафедр на этом факультете</span></p></div>'}</div>
+    `;
+    return;
+  }
+
+  // Уровень 2: специальности внутри кафедры
+  if (orgPath.length === 2) {
+    const d = findDeptNode(orgPath[1].id);
+    if (!d) { content.innerHTML = '<div class="empty-state"><p><span data-i18n="org.departmentNotFound">Кафедра не найдена</span></p></div>'; return; }
+    summary.innerHTML = orgTotalsCard(d, `📊 Итог по кафедре «${escapeHtml(d.name)}»`);
+    const cards = d.specialties.map(s => orgCard({
+      title: `🎓 ${s.name}`,
+      subtitle: `${s.groups.length} групп`,
+      studentsCount: s.students_count, gradePct: s.avg_grade_pct, attPct: s.avg_attendance_pct,
+      onClick: `orgDrill('specialty', ${s.id}, '${escapeHtmlAttr(s.name)}')`
+    })).join('');
+    content.innerHTML = `
+      <div class="flex justify-between items-center mb-12">
+        <h3 style="margin:0">Специальности кафедры «${d.name}»</h3>
+        <button class="btn btn-primary btn-sm" onclick="openOrgEntityModal('specialty', ${d.id})">+ Специальность</button>
+      </div>
+      <div class="grid-3" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">${cards || '<div class="empty-state"><p><span data-i18n="org.noSpecialtiesYet">Пока нет специальностей на этой кафедре</span></p></div>'}</div>
+    `;
+    return;
+  }
+
+  // Уровень 3: группы внутри специальности (с разбивкой по курсам)
+  if (orgPath.length === 3) {
+    const s = findSpecNode(orgPath[2].id);
+    if (!s) { content.innerHTML = '<div class="empty-state"><p><span data-i18n="org.specialtyNotFound">Специальность не найдена</span></p></div>'; return; }
+    summary.innerHTML = orgTotalsCard(s, `📊 Итог по специальности «${escapeHtml(s.name)}»`);
+    const byCourse = {};
+    s.groups.forEach(g => { const c = g.course || '—'; (byCourse[c] = byCourse[c] || []).push(g); });
+    const courseKeys = Object.keys(byCourse).sort((a, b) => (a === '—' ? 99 : +a) - (b === '—' ? 99 : +b));
+    const blocks = courseKeys.map(c => `
+      <div class="mb-20">
+        <div class="font-bold mb-8">${c === '—' ? 'Курс не указан' : c + ' курс'}</div>
+        <div class="grid-3" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px">
+          ${byCourse[c].map(g => orgCard({
+            title: `👥 ${g.name}`,
+            subtitle: `${g.courses_count} курс(ов) обучения`,
+            studentsCount: g.students_count, gradePct: g.avg_grade_pct, attPct: g.avg_attendance_pct,
+            onClick: `orgDrill('group', ${g.id}, '${escapeHtmlAttr(g.name)}')`
+          })).join('')}
+        </div>
+      </div>`).join('');
+    content.innerHTML = `
+      <div class="flex justify-between items-center mb-12">
+        <h3 style="margin:0">Группы специальности «${s.name}»</h3>
+        <button class="btn btn-primary btn-sm" onclick="openOrgGroupModal(${s.id})">+ Группа</button>
+      </div>
+      ${blocks || '<div class="empty-state"><p><span data-i18n="org.noGroupsInSpecialty">Пока нет групп в этой специальности</span></p></div>'}
+    `;
+    return;
+  }
+
+  // Уровень 4: детальная успеваемость группы (переиспользуем perfBar/loadGroupPerformance-логику)
+  if (orgPath.length === 4) {
+    summary.innerHTML = '';
+    content.innerHTML = '<div class="skeleton skeleton-card"></div>';
+    renderOrgGroupDetail(orgPath[3].id);
+    return;
+  }
+}
+
+async function renderOrgGroupDetail(groupId) {
+  const content = document.getElementById('orgContent');
+  try {
+    const data = await api('GET', `/api/groups/${groupId}/performance`);
+    if (data.error) { content.innerHTML = `<div class="empty-state"><p>${data.error}</p></div>`; return; }
+    const atRisk = data.student_summary.filter(s =>
+      (s.overall_grade_pct !== null && s.overall_grade_pct < 60) ||
+      (s.overall_attendance_pct !== null && s.overall_attendance_pct < 70) || s.missed_deadlines_total > 0
+    );
+    content.innerHTML = `
+      <div class="mb-20" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+        <div class="card" style="padding:16px"><div class="text-muted text-sm"><span data-i18n="common.avgGrade">Средний балл</span></div><div style="font-size:28px;font-weight:800;margin-top:4px">${data.group_avg_grade_pct ?? '—'}%</div></div>
+        <div class="card" style="padding:16px"><div class="text-muted text-sm"><span data-i18n="common.attendance">Посещаемость</span></div><div style="font-size:28px;font-weight:800;margin-top:4px">${data.group_avg_attendance_pct ?? '—'}%</div></div>
+        <div class="card" style="padding:16px"><div class="text-muted text-sm"><span data-i18n="org.coursesCount">Курсов</span></div><div style="font-size:28px;font-weight:800;margin-top:4px">${data.courses_count}</div></div>
+        <div class="card" style="padding:16px"><div class="text-muted text-sm"><span data-i18n="org.atRisk">В зоне риска</span></div><div style="font-size:28px;font-weight:800;margin-top:4px;color:${atRisk.length ? '#ef4444' : '#22c55e'}">${atRisk.length}</div></div>
+      </div>
+      <h3 class="mb-12"><span data-i18n="grp.byStudents">По студентам</span></h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th><span data-i18n="common.student">Студент</span></th><th style="min-width:160px"><span data-i18n="common.avgGrade">Средний балл</span></th><th style="min-width:160px"><span data-i18n="common.attendance">Посещаемость</span></th><th><span data-i18n="common.missed">Пропусков</span></th></tr></thead>
+          <tbody>
+            ${data.student_summary.map(s => `
+              <tr style="${((s.overall_grade_pct !== null && s.overall_grade_pct < 60) || (s.overall_attendance_pct !== null && s.overall_attendance_pct < 70)) ? 'background:rgba(239,68,68,0.06)' : ''}">
+                <td>${s.student.full_name || s.student.username}</td>
+                <td>${perfBar(s.overall_grade_pct)}</td>
+                <td>${perfBar(s.overall_attendance_pct)}</td>
+                <td>${s.missed_deadlines_total > 0 ? `<span class="journal-badge journal-badge-absence">${s.missed_deadlines_total}</span>` : '—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    content.innerHTML = `<div class="empty-state"><p>Ошибка: ${e.message}</p></div>`;
+  }
+}
+
+function escapeHtmlAttr(s) { return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+// ─── CRUD: факультет / кафедра / специальность ───
+function openOrgEntityModal(type, parentId, existing) {
+  const titles = { faculty: existing ? 'Изменить факультет' : 'Добавить факультет',
+                    department: 'Добавить кафедру', specialty: 'Добавить специальность' };
+  document.getElementById('orgEntityModalTitle').textContent = titles[type];
+  document.getElementById('orgEntityType').value = type;
+  document.getElementById('orgEntityId').value = existing ? existing.id : '';
+  document.getElementById('orgEntityParentId').value = parentId || '';
+  document.getElementById('orgEntityName').value = existing ? existing.name : '';
+  document.getElementById('orgEntityDesc').value = '';
+  openModal('orgEntityModal');
+}
+
+async function saveOrgEntity() {
+  const type = document.getElementById('orgEntityType').value;
+  const id = document.getElementById('orgEntityId').value;
+  const parentId = document.getElementById('orgEntityParentId').value;
+  const name = document.getElementById('orgEntityName').value.trim();
+  const description = document.getElementById('orgEntityDesc').value.trim();
+  if (!name) return showToast(i18nT('toast.admin.enterName'), 'error');
+
+  const endpoints = { faculty: '/api/faculties', department: '/api/departments', specialty: '/api/specialties' };
+  const parentKeys = { faculty: null, department: 'faculty_id', specialty: 'department_id' };
+  const body = { name, description };
+  if (parentKeys[type]) body[parentKeys[type]] = parentId;
+
+  try {
+    if (id) await api('PUT', `${endpoints[type]}/${id}`, body);
+    else await api('POST', endpoints[type], body);
+    closeModal('orgEntityModal');
+    showToast(i18nT('toast.admin.saved'));
+    await loadOrgTree();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ─── CRUD: группа внутри специальности ───
+async function openOrgGroupModal(specialtyId) {
+  document.getElementById('orgGroupModalTitle').textContent = 'Создать группу';
+  document.getElementById('orgGroupId').value = '';
+  document.getElementById('orgGroupSpecialtyId').value = specialtyId;
+  document.getElementById('orgGroupName').value = '';
+  document.getElementById('orgGroupCourse').value = '1';
+  if (!allUsers.length) await loadCommonData();
+  const teachers = allUsers.filter(u => u.role === 'teacher');
+  document.getElementById('orgGroupCurator').innerHTML = '<option value="">— Без куратора —</option>' +
+    teachers.map(t => `<option value="${t.id}">${t.full_name}</option>`).join('');
+  openModal('orgGroupModal');
+}
+
+async function saveOrgGroup() {
+  const specialty_id = document.getElementById('orgGroupSpecialtyId').value;
+  const name = document.getElementById('orgGroupName').value.trim();
+  const course = document.getElementById('orgGroupCourse').value;
+  const curator_id = document.getElementById('orgGroupCurator').value || null;
+  if (!name) return showToast(i18nT('toast.admin.enterGroupName'), 'error');
+  try {
+    await api('POST', '/api/groups', { name, specialty_id, course, curator_id });
+    closeModal('orgGroupModal');
+    showToast(i18nT('toast.admin.groupCreated'));
+    await loadOrgTree();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ─── ПОИСК (быстрый + ИИ) ───
+let orgSearchTimer = null;
+function onOrgSearchInput() {
+  clearTimeout(orgSearchTimer);
+  const q = document.getElementById('orgSearchInput').value.trim();
+  const box = document.getElementById('orgSearchResults');
+  if (!q) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  orgSearchTimer = setTimeout(() => runOrgSearch(q), 350);
+}
+async function runOrgSearch(q) {
+  const box = document.getElementById('orgSearchResults');
+  box.classList.remove('hidden');
+  box.innerHTML = '<div class="text-muted text-sm" style="padding:10px"><span data-i18n="org.searching">Ищу...</span></div>';
+  try {
+    const r = await api('GET', `/api/org/search?q=${encodeURIComponent(q)}`);
+    const total = r.faculties.length + r.departments.length + r.specialties.length + r.groups.length + r.students.length;
+    if (!total) { box.innerHTML = '<div class="text-muted text-sm" style="padding:10px"><span data-i18n="lib.nothingFound">Ничего не найдено</span></div>'; return; }
+    const section = (title, items, renderer) => items.length ? `
+      <div style="padding:6px 10px 2px;font-size:.75rem;text-transform:uppercase;color:var(--text2);font-weight:700">${title}</div>
+      ${items.map(renderer).join('')}` : '';
+    box.innerHTML =
+      (r.ai_used ? `<div class="text-sm" style="padding:6px 10px;color:var(--purple)">✨ Дополнено ИИ (учтены опечатки/синонимы)</div>` : '') +
+      section('Факультеты', r.faculties, f => `<div class="org-search-item" onclick="orgJumpToFaculty(${f.id},'${escapeHtmlAttr(f.name)}')">🏛 ${f.name}</div>`) +
+      section('Кафедры', r.departments, d => `<div class="org-search-item" onclick="orgJumpToDepartment(${d.faculty_id},'${escapeHtmlAttr(d.faculty_name)}',${d.id},'${escapeHtmlAttr(d.name)}')">🏢 ${d.name} <span class="text-muted text-sm">— ${d.faculty_name}</span></div>`) +
+      section('Специальности', r.specialties, s => `<div class="org-search-item" onclick="orgJumpToSpecialty(${s.faculty_id},'${escapeHtmlAttr(s.faculty_name)}',${s.department_id},'${escapeHtmlAttr(s.department_name)}',${s.id},'${escapeHtmlAttr(s.name)}')">🎓 ${s.name} <span class="text-muted text-sm">— ${s.department_name}</span></div>`) +
+      section('Группы', r.groups, g => `<div class="org-search-item" onclick="showToast('Откройте через дерево: ${escapeHtmlAttr(g.specialty_name || '—')}', 'error')">👥 ${g.name} ${g.course ? `(${g.course} курс)` : ''} <span class="text-muted text-sm">— ${g.specialty_name || 'без специальности'}</span></div>`) +
+      section('Студенты', r.students, s => `<div class="org-search-item">🧑‍🎓 ${s.full_name} <span class="text-muted text-sm">— ${s.group_name || 'без группы'}</span></div>`);
+  } catch (e) {
+    box.innerHTML = `<div class="text-muted text-sm" style="padding:10px">Ошибка поиска: ${e.message}</div>`;
+  }
+}
+function orgJumpToFaculty(id, name) {
+  document.getElementById('orgSearchResults').classList.add('hidden');
+  document.getElementById('orgSearchInput').value = '';
+  orgPath = [{ level: 'faculty', id, name }];
+  renderOrgView();
+}
+function orgJumpToDepartment(facultyId, facultyName, deptId, deptName) {
+  document.getElementById('orgSearchResults').classList.add('hidden');
+  document.getElementById('orgSearchInput').value = '';
+  orgPath = [{ level: 'faculty', id: facultyId, name: facultyName }, { level: 'department', id: deptId, name: deptName }];
+  renderOrgView();
+}
+function orgJumpToSpecialty(facultyId, facultyName, deptId, deptName, specId, specName) {
+  document.getElementById('orgSearchResults').classList.add('hidden');
+  document.getElementById('orgSearchInput').value = '';
+  orgPath = [{ level: 'faculty', id: facultyId, name: facultyName }, { level: 'department', id: deptId, name: deptName }, { level: 'specialty', id: specId, name: specName }];
+  renderOrgView();
+}
+
+// ─── ИИ-АНАЛИЗ ПРОБЛЕМНЫХ ЗОН ───
+async function runOrgAiAnalysis() {
+  const btn = document.getElementById('orgAiAnalysisBtn');
+  const panel = document.getElementById('orgAiAnalysisPanel');
+  btn.disabled = true; const old = btn.textContent; btn.textContent = '⏳ Анализирую...';
+  panel.classList.remove('hidden');
+  panel.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  try {
+    const r = await api('POST', '/api/ai-assistant/org-analysis', {});
+    const row = (label, best, worst) => `
+      <tr>
+        <td style="font-weight:600">${label}</td>
+        <td>${best ? `✅ <b>${best.name}</b> <span class="text-muted text-sm">(${best.composite}%)</span>` : '—'}</td>
+        <td>${worst ? `⚠️ <b>${worst.name}</b> <span class="text-muted text-sm">(${worst.composite}%)</span>` : '—'}</td>
+      </tr>`;
+    panel.innerHTML = `
+      <div class="card" style="padding:20px">
+        <h3 class="mb-12">🤖 ИИ-анализ проблемных зон</h3>
+        <div class="table-wrap mb-16">
+          <table>
+            <thead><tr><th><span data-i18n="common.level">Уровень</span></th><th><span data-i18n="common.best">Лучший</span></th><th><span data-i18n="org.worstNeedsAttention">Худший (требует внимания)</span></th></tr></thead>
+            <tbody>
+              ${row('Факультет', r.ranking.faculties.best, r.ranking.faculties.worst)}
+              ${row('Кафедра', r.ranking.departments.best, r.ranking.departments.worst)}
+              ${row('Специальность', r.ranking.specialties.best, r.ranking.specialties.worst)}
+              ${row('Курс (год)', r.ranking.courses.best, r.ranking.courses.worst)}
+              ${row('Группа', r.ranking.groups.best, r.ranking.groups.worst)}
+            </tbody>
+          </table>
+        </div>
+        ${r.ai_summary ? `<div style="white-space:pre-wrap;line-height:1.6;padding:14px;background:rgba(124,58,237,0.06);border-radius:10px">${r.ai_summary.replace(/</g, '&lt;')}</div>` : '<div class="text-muted text-sm">ИИ-комментарий недоступен (не настроен ключ), но таблица выше рассчитана по реальным данным.</div>'}
+      </div>`;
+  } catch (e) {
+    panel.innerHTML = `<div class="empty-state"><p>Ошибка: ${e.message}</p></div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const box = document.getElementById('orgSearchResults');
+  if (box && !box.contains(e.target) && e.target.id !== 'orgSearchInput') box.classList.add('hidden');
+});
+
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
+}
+// ─────────────────────────────────────────────
+// БИБЛИОТЕКА
+// ─────────────────────────────────────────────
+let libraryBooksCache = [];
+let libraryDetailPlaylistId = null;
+let libraryBookSearchTimer = null;
+
+function debouncedLoadLibraryBooks() {
+  clearTimeout(libraryBookSearchTimer);
+  libraryBookSearchTimer = setTimeout(loadLibraryBooks, 300);
+}
+
+async function loadLibraryBooks() {
+  const grid = document.getElementById('libraryBooksGrid');
+  try {
+    const search = document.getElementById('libraryBookSearch').value.trim();
+    const url = '/api/library/books' + (search ? `?search=${encodeURIComponent(search)}` : '');
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось загрузить книги', 'error'); return; }
+    libraryBooksCache = data;
+    renderLibraryBooks(data);
+  } catch (e) {
+    grid.innerHTML = `<p class="text-muted"><span data-i18n="lib.loadLibraryFailed">Не удалось загрузить библиотеку</span></p>`;
+  }
+}
+
+function accessModeLabel(mode) {
+  return { private: 'Приватно', public: 'Всем', link: 'По ссылке' }[mode] || mode;
+}
+
+function renderLibraryBooks(books) {
+  const grid = document.getElementById('libraryBooksGrid');
+  if (!books.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-state-icon">📚</div><h3><span data-i18n="lib.noBooksYet">Книг пока нет</span></h3>
+      <p><span data-i18n="org.uploadFirstBook">Загрузите первую книгу, чтобы делиться ссылкой на неё в уроках</span></p>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = books.map(b => {
+    const isOwner = b.uploaded_by === user.id;
+    return `
+    <div class="card">
+      <div class="card-body">
+        <div class="flex justify-between items-start gap-8">
+          <div class="flex items-start gap-12">
+            ${b.cover_path ? `<img class="book-cover" src="${b.cover_path}" alt="">` : `<div class="book-cover-placeholder">📚</div>`}
+            <div>
+              <div class="card-title">${escapeHtml(b.title)}</div>
+              ${b.author ? `<div class="text-muted text-sm mt-8">${escapeHtml(b.author)}</div>` : ''}
+            </div>
+          </div>
+          <div class="flex" style="flex-direction:column;align-items:flex-end;gap:4px">
+            ${b.category ? `<span class="badge badge-teacher">${escapeHtml(b.category)}</span>` : ''}
+            ${isOwner ? `<span class="badge badge-pending">${accessModeLabel(b.access_mode)}</span>` : ''}
+          </div>
+        </div>
+        ${b.description ? `<p class="text-sm text-muted mt-8">${escapeHtml(b.description)}</p>` : ''}
+        <div class="text-sm text-muted mt-8">Загрузил(а): ${escapeHtml(b.uploader_name || '')}</div>
+      </div>
+      <div class="card-footer flex gap-8" style="flex-wrap:wrap">
+        <a class="btn btn-ghost btn-sm" href="#" onclick="event.preventDefault(); openDocumentReader('${b.file_path}', {title: '${escapeHtml(b.title).replace(/'/g, "\\'")}'})">📖 Читать</a>
+        <a class="btn btn-ghost btn-sm" href="${b.file_path}" download title="Скачать">📥</a>
+        <button class="btn btn-ghost btn-sm" onclick="copyBookLink('${b.file_path}')"><span data-i18n="lib.link">Ссылка</span></button>
+        ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="openBookAccessModal(${b.id}, '${escapeHtml(b.title).replace(/'/g, "\\'")}')"><span data-i18n="lib.access">Доступ</span></button>` : ''}
+        ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="deleteLibraryBook(${b.id})" title="Удалить">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+          </svg>
+        </button>` : ''}
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+function copyBookLink(filePath) {
+  const fullUrl = window.location.origin + filePath;
+  navigator.clipboard.writeText(fullUrl)
+    .then(() => showToast(i18nT('toast.admin.linkCopied')))
+    .catch(() => showToast(i18nT('toast.admin.copyLinkFailed'), 'error'));
+}
+
+function openUploadBookModal() {
+  ['bookTitle','bookAuthor','bookCategory','bookDescription'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('bookFile').value = '';
+  document.getElementById('bookCover').value = '';
+  document.getElementById('bookFileDrop').style.display = '';
+  document.getElementById('bookFileSel').classList.add('hidden');
+  document.getElementById('bookCoverDrop').style.display = '';
+  document.getElementById('bookCoverSel').classList.add('hidden');
+  document.getElementById('bookAccessMode').value = 'private';
+  openModal('uploadBookModal');
+}
+
+async function submitUploadBook() {
+  const title = document.getElementById('bookTitle').value.trim();
+  const fileInput = document.getElementById('bookFile');
+  if (!title) { showToast(i18nT('toast.admin.specifyBookName'), 'error'); return; }
+  if (!fileInput.files[0]) { showToast(i18nT('toast.admin.selectBookFile'), 'error'); return; }
+
+  const btn = document.getElementById('uploadBookBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Загружаем...';
+
+  const fd = new FormData();
+  fd.append('title', title);
+  fd.append('author', document.getElementById('bookAuthor').value.trim());
+  fd.append('category', document.getElementById('bookCategory').value.trim());
+  fd.append('description', document.getElementById('bookDescription').value.trim());
+  fd.append('file', fileInput.files[0]);
+  fd.append('access_mode', document.getElementById('bookAccessMode').value);
+  if (document.getElementById('bookCover').files[0]) fd.append('cover', document.getElementById('bookCover').files[0]);
+
+  try {
+    const res = await fetch('/api/library/books', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: fd
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Ошибка загрузки', 'error'); return; }
+    showToast(i18nT('toast.admin.bookUploaded'));
+    closeModal('uploadBookModal');
+    loadLibraryBooks();
+  } catch (e) {
+    showToast(i18nT('toast.admin.loadBookError'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Загрузить';
+  }
+}
+
+async function deleteLibraryBook(id) {
+  if (!confirm('Удалить эту книгу из библиотеки?')) return;
+  try {
+    const res = await fetch(`/api/library/books/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось удалить', 'error'); return; }
+    showToast(i18nT('toast.admin.bookDeleted'));
+    loadLibraryBooks();
+  } catch (e) {
+    showToast(i18nT('toast.admin.deleteErrorShort'), 'error');
+  }
+}
+
+// ─── ДОСТУП К КНИГЕ (приватно / всем / по ссылке; правила для студента/группы/учителя) ───
+let bookAccessBookId = null;
+let bookAccessGrantsCache = [];
+let bookAccessGroupsCache = null;
+let grantSearchTimer = null;
+
+async function openBookAccessModal(bookId, title) {
+  bookAccessBookId = bookId;
+  document.getElementById('bookAccessTitle').textContent = title;
+  document.getElementById('grantSearch').value = '';
+  document.getElementById('grantTargetType').value = 'student';
+  document.getElementById('grantPickerResults').innerHTML = '';
+  openModal('bookAccessModal');
+  await loadBookAccess();
+}
+
+async function loadBookAccess() {
+  try {
+    const res = await fetch(`/api/library/books/${bookAccessBookId}/access`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось загрузить доступ', 'error'); return; }
+    document.getElementById('bookAccessModeSelect').value = data.access_mode;
+    bookAccessGrantsCache = data.grants;
+    renderBookAccessGrants();
+    document.getElementById('bookAccessGrantsWrap').classList.toggle('hidden', data.access_mode !== 'private');
+  } catch (e) {
+    showToast(i18nT('toast.admin.loadAccessError'), 'error');
+  }
+}
+
+function renderBookAccessGrants() {
+  const list = document.getElementById('bookAccessGrantsList');
+  if (!bookAccessGrantsCache.length) {
+    list.innerHTML = `<p class="text-muted text-sm"><span data-i18n="lib.noAccessGrantedYet">Пока никому не открыт доступ</span></p>`;
+    return;
+  }
+  const typeLabel = { student: 'Студент', teacher: 'Учитель', group: 'Группа' };
+  list.innerHTML = bookAccessGrantsCache.map(g => `
+    <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div class="text-sm">
+        <span class="badge badge-teacher" style="margin-right:8px">${typeLabel[g.target_type]}</span>
+        ${escapeHtml(g.target_name || '—')}
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="removeGrant(${g.id})"><span data-i18n="lib.remove">Убрать</span></button>
+    </div>
+  `).join('');
+}
+
+async function changeAccessMode() {
+  const mode = document.getElementById('bookAccessModeSelect').value;
+  try {
+    const res = await fetch(`/api/library/books/${bookAccessBookId}/access-mode`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access_mode: mode })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось изменить режим', 'error'); return; }
+    document.getElementById('bookAccessGrantsWrap').classList.toggle('hidden', mode !== 'private');
+    loadLibraryBooks();
+  } catch (e) {
+    showToast(i18nT('toast.admin.changeAccessModeError'), 'error');
+  }
+}
+
+function renderGrantPickerResults() {
+  clearTimeout(grantSearchTimer);
+  grantSearchTimer = setTimeout(async () => {
+    const type = document.getElementById('grantTargetType').value;
+    const q = document.getElementById('grantSearch').value.trim();
+    const resultsEl = document.getElementById('grantPickerResults');
+    try {
+      let items;
+      if (type === 'group') {
+        if (!bookAccessGroupsCache) {
+          const res = await fetch('/api/groups', { headers: { 'Authorization': `Bearer ${token}` } });
+          bookAccessGroupsCache = await res.json();
+        }
+        items = bookAccessGroupsCache
+          .filter(g => !q || g.name.toLowerCase().includes(q.toLowerCase()))
+          .map(g => ({ id: g.id, label: g.name }));
+      } else {
+        const res = await fetch(`/api/users?role=${type}&search=${encodeURIComponent(q)}&limit=20`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const rows = Array.isArray(data) ? data : (data.users || []);
+        items = rows.map(u => ({ id: u.id, label: u.full_name || u.username }));
+      }
+      resultsEl.innerHTML = !items.length
+        ? `<p class="text-muted text-sm"><span data-i18n="lib.nothingFound">Ничего не найдено</span></p>`
+        : items.map(i => `
+          <div class="flex justify-between items-center" style="padding:6px 0">
+            <span class="text-sm">${escapeHtml(i.label)}</span>
+            <button class="btn btn-primary btn-sm" onclick="addGrant('${type}', ${i.id})"><span data-i18n="common.add">Добавить</span></button>
+          </div>
+        `).join('');
+    } catch (e) {
+      resultsEl.innerHTML = `<p class="text-muted text-sm"><span data-i18n="lib.searchError">Ошибка поиска</span></p>`;
+    }
+  }, 250);
+}
+
+async function addGrant(targetType, targetId) {
+  try {
+    const res = await fetch(`/api/library/books/${bookAccessBookId}/access`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_type: targetType, target_id: targetId })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось открыть доступ', 'error'); return; }
+    showToast(i18nT('toast.admin.accessGranted'));
+    loadBookAccess();
+  } catch (e) {
+    showToast(i18nT('toast.admin.openAccessError'), 'error');
+  }
+}
+
+async function removeGrant(grantId) {
+  try {
+    const res = await fetch(`/api/library/books/${bookAccessBookId}/access/${grantId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось убрать доступ', 'error'); return; }
+    loadBookAccess();
+  } catch (e) {
+    showToast(i18nT('toast.admin.genericError'), 'error');
+  }
+}
+
+let libraryPlaylistsCache = [];
+
+async function loadLibraryPlaylists() {
+  const grid = document.getElementById('libraryPlaylistsGrid');
+  try {
+    const res = await fetch('/api/library/playlists', { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось загрузить подборки', 'error'); return; }
+    libraryPlaylistsCache = data;
+    renderLibraryPlaylists(data);
+  } catch (e) {
+    grid.innerHTML = `<p class="text-muted"><span data-i18n="lib.loadCollectionsFailed">Не удалось загрузить подборки</span></p>`;
+  }
+}
+
+function renderLibraryPlaylists(playlists) {
+  const grid = document.getElementById('libraryPlaylistsGrid');
+  if (!playlists.length) {
+    grid.innerHTML = `<p class="text-muted text-sm">Подборок пока нет — создайте первую, чтобы группировать книги по темам</p>`;
+    return;
+  }
+  grid.innerHTML = playlists.map(p => `
+    <div class="card card-clickable" onclick="openPlaylistDetail(${p.id})">
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(p.title)}</div>
+        ${p.description ? `<p class="text-sm text-muted mt-8">${escapeHtml(p.description)}</p>` : ''}
+        <div class="text-sm text-muted mt-8">${p.book_count} кн. · ${escapeHtml(p.owner_name || '')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openCreatePlaylistModal() {
+  document.getElementById('libPlaylistTitle').value = '';
+  document.getElementById('libPlaylistDescription').value = '';
+  openModal('createPlaylistLibModal');
+}
+
+async function submitCreatePlaylist() {
+  const title = document.getElementById('libPlaylistTitle').value.trim();
+  if (!title) { showToast(i18nT('toast.admin.specifyPlaylistName'), 'error'); return; }
+  try {
+    const res = await fetch('/api/library/playlists', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        description: document.getElementById('libPlaylistDescription').value.trim()
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Ошибка создания', 'error'); return; }
+    showToast(i18nT('toast.admin.playlistCreated'));
+    closeModal('createPlaylistLibModal');
+    loadLibraryPlaylists();
+  } catch (e) {
+    showToast(i18nT('toast.admin.createPlaylistError'), 'error');
+  }
+}
+
+async function openPlaylistDetail(id) {
+  libraryDetailPlaylistId = id;
+  try {
+    const res = await fetch(`/api/library/playlists/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const playlist = await res.json();
+    if (!res.ok) { showToast(playlist.error || 'Не удалось открыть подборку', 'error'); return; }
+
+    document.getElementById('libraryPlaylistDetailTitle').textContent = playlist.title;
+    document.getElementById('libraryPlaylistDetailDesc').textContent = playlist.description || '';
+    const grid = document.getElementById('libraryPlaylistDetailGrid');
+    grid.innerHTML = !playlist.books.length
+      ? `<p class="text-muted text-sm"><span data-i18n="lib.noBooksInCollection">В подборке пока нет книг</span></p>`
+      : playlist.books.map(b => `
+        <div class="card">
+          <div class="card-body flex items-start gap-12">
+            ${b.cover_path ? `<img class="book-cover" src="${b.cover_path}" alt="">` : `<div class="book-cover-placeholder">📚</div>`}
+            <div>
+              <div class="card-title">${escapeHtml(b.title)}</div>
+              ${b.author ? `<div class="text-muted text-sm mt-8">${escapeHtml(b.author)}</div>` : ''}
+            </div>
+          </div>
+          <div class="card-footer flex gap-8">
+            <a class="btn btn-ghost btn-sm" href="#" onclick="event.preventDefault(); openDocumentReader('${b.file_path}', {title: '${escapeHtml(b.title).replace(/'/g, "\\'")}'})">📖 Читать</a>
+        <a class="btn btn-ghost btn-sm" href="${b.file_path}" download title="Скачать">📥</a>
+            <button class="btn btn-ghost btn-sm" onclick="copyBookLink('${b.file_path}')"><span data-i18n="lib.link">Ссылка</span></button>
+            <button class="btn btn-ghost btn-sm" onclick="removeBookFromPlaylist(${b.id})"><span data-i18n="lib.remove">Убрать</span></button>
+          </div>
+        </div>
+      `).join('');
+
+    document.getElementById('libraryMain-view').classList.add('hidden');
+    document.getElementById('libraryBooksDetail-view').classList.remove('hidden');
+  } catch (e) {
+    showToast(i18nT('toast.admin.openPlaylistError'), 'error');
+  }
+}
+
+function closePlaylistDetail() {
+  libraryDetailPlaylistId = null;
+  document.getElementById('libraryBooksDetail-view').classList.add('hidden');
+  document.getElementById('libraryMain-view').classList.remove('hidden');
+  loadLibraryPlaylists();
+}
+
+async function removeBookFromPlaylist(bookId) {
+  if (!libraryDetailPlaylistId) return;
+  try {
+    const res = await fetch(`/api/library/playlists/${libraryDetailPlaylistId}/books/${bookId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) { const data = await res.json(); showToast(data.error || 'Не удалось убрать книгу', 'error'); return; }
+    openPlaylistDetail(libraryDetailPlaylistId);
+  } catch (e) {
+    showToast(i18nT('toast.admin.genericError'), 'error');
+  }
+}
+
+function openAddBookModal() {
+  document.getElementById('addBookSearch').value = '';
+  renderAddBookList();
+  openModal('addBookModal');
+}
+
+function renderAddBookList() {
+  const q = document.getElementById('addBookSearch').value.trim().toLowerCase();
+  const list = document.getElementById('addBookList');
+  const filtered = libraryBooksCache.filter(b =>
+    !q || b.title.toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q)
+  );
+  if (!filtered.length) { list.innerHTML = `<p class="text-muted text-sm"><span data-i18n="lib.nothingFound">Ничего не найдено</span></p>`; return; }
+  list.innerHTML = filtered.map(b => `
+    <div class="flex justify-between items-center" style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-weight:600">${escapeHtml(b.title)}</div>
+        ${b.author ? `<div class="text-sm text-muted">${escapeHtml(b.author)}</div>` : ''}
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="addBookToPlaylist(${b.id})"><span data-i18n="common.add">Добавить</span></button>
+    </div>
+  `).join('');
+}
+
+async function addBookToPlaylist(bookId) {
+  if (!libraryDetailPlaylistId) return;
+  try {
+    const res = await fetch(`/api/library/playlists/${libraryDetailPlaylistId}/books`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book_id: bookId })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Не удалось добавить книгу', 'error'); return; }
+    showToast(i18nT('toast.admin.bookAddedToPlaylist'));
+    openPlaylistDetail(libraryDetailPlaylistId);
+  } catch (e) {
+    showToast(i18nT('toast.admin.addBookError'), 'error');
+  }
+}
+
+function doLogout() { sessionStorage.clear(); window.location.href = 'index.html'; }
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.body.style.overflow = ''; }
+function closeOnOverlay(e, id) { if (e.target === document.getElementById(id)) closeModal(id); }
+function escapeHtml(t) { return (t || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function loadCommonData() {
+  const usersRes = await api('GET', '/api/users?limit=1000');
+  allUsers = usersRes.users || usersRes;
+  allPlaylists = await api('GET', '/api/playlists');
+}
+
+// ─────────────────────────────────────────────
+// ФАКУЛЬТЕТЫ
+// ─────────────────────────────────────────────
+async function loadFaculties() {
+  try {
+    allFaculties = await api('GET', '/api/faculties');
+    renderFaculties();
+  } catch (e) { showToast(i18nT('toast.admin.loadFacultiesError'), 'error'); }
+}
+
+function renderFaculties() {
+  const q = (document.getElementById('facSearch').value || '').toLowerCase();
+  const list = allFaculties.filter(f => f.name.toLowerCase().includes(q));
+  const el = document.getElementById('facultiesList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state"><h3><span data-i18n="grp.noFacultiesYet">Пока нет факультетов</span></h3><p><span data-i18n="org.addFirstFaculty">Добавьте первый факультет, чтобы начать создавать группы</span></p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(f => `
+    <div class="fac-card">
+      <div class="f-info">
+        <div class="f-name">${escapeHtml(f.name)}</div>
+        <div class="f-desc">${escapeHtml(f.description || 'Без описания')} · Групп: ${f.group_count}</div>
+      </div>
+      <button class="btn-icon" onclick="openFacultyModal(${f.id})" title="Изменить">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+          <path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      </button>
+      <button class="btn-icon" onclick="deleteFaculty(${f.id})" title="Удалить">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+        </svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function openFacultyModal(id) {
+  const f = id ? allFaculties.find(x => x.id === id) : null;
+  document.getElementById('facultyModalTitle').textContent = f ? 'Изменить факультет' : 'Добавить факультет';
+  document.getElementById('facultyId').value = f ? f.id : '';
+  document.getElementById('facultyName').value = f ? f.name : '';
+  document.getElementById('facultyDesc').value = f ? (f.description || '') : '';
+  openModal('facultyModal');
+}
+
+async function saveFaculty() {
+  const id = document.getElementById('facultyId').value;
+  const name = document.getElementById('facultyName').value.trim();
+  const description = document.getElementById('facultyDesc').value.trim();
+  if (!name) return showToast(i18nT('toast.admin.enterFacultyName'), 'error');
+  try {
+    if (id) await api('PUT', `/api/faculties/${id}`, { name, description });
+    else await api('POST', '/api/faculties', { name, description });
+    closeModal('facultyModal');
+    showToast(id ? 'Факультет обновлён' : 'Факультет добавлен');
+    loadFaculties();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function deleteFaculty(id) {
+  if (!confirm('Удалить факультет? Все связанные группы также будут удалены.')) return;
+  try {
+    await api('DELETE', `/api/faculties/${id}`);
+    showToast(i18nT('toast.admin.facultyDeleted'));
+    loadFaculties();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ─────────────────────────────────────────────
+// ГРУППЫ — СПИСОК
+// ─────────────────────────────────────────────
+async function loadGroups() {
+  try {
+    if (!allFaculties.length) allFaculties = await api('GET', '/api/faculties');
+    if (!allUsers.length) await loadCommonData();
+    allGroups = await api('GET', '/api/groups');
+    renderGroups();
+  } catch (e) { showToast(i18nT('toast.admin.loadGroupsError'), 'error'); }
+}
+
+function renderGroups() {
+  const q = (document.getElementById('groupSearch').value || '').toLowerCase();
+  const list = allGroups.filter(g => g.name.toLowerCase().includes(q));
+  const el = document.getElementById('groupsList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state"><h3><span data-i18n="org.noGroupsYet">Пока нет групп</span></h3><p><span data-i18n="org.createFirstGroup">Создайте первую группу</span></p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(g => `
+    <div class="group-card" onclick="openGroupDetail(${g.id})">
+      <div class="g-icon">${escapeHtml(g.name).slice(0,2).toUpperCase()}</div>
+      <div class="g-info">
+        <div class="g-name">${escapeHtml(g.name)}</div>
+        <div class="g-meta">${escapeHtml(g.faculty_name)} · Куратор: ${g.curator_name ? escapeHtml(g.curator_name) : 'не назначен'}</div>
+      </div>
+      <div class="g-count">${g.student_count ?? 0} студ.</div>
+    </div>
+  `).join('');
+}
+
+function openGroupModal() {
+  document.getElementById('groupModalTitle').textContent = 'Создать группу';
+  document.getElementById('groupId').value = '';
+  document.getElementById('groupName').value = '';
+  document.getElementById('groupError').classList.add('hidden');
+  fillFacultySelect();
+  fillCuratorSelect();
+  document.getElementById('groupFaculty').value = '';
+  document.getElementById('groupCurator').value = '';
+  openModal('groupModal');
+}
+
+function openEditGroupModal() {
+  document.getElementById('groupModalTitle').textContent = 'Изменить группу';
+  document.getElementById('groupId').value = currentGroup.id;
+  document.getElementById('groupName').value = currentGroup.name;
+  document.getElementById('groupError').classList.add('hidden');
+  fillFacultySelect();
+  fillCuratorSelect();
+  document.getElementById('groupFaculty').value = currentGroup.faculty_id;
+  document.getElementById('groupCurator').value = currentGroup.curator_id || '';
+  openModal('groupModal');
+}
+
+function fillFacultySelect() {
+  document.getElementById('groupFaculty').innerHTML =
+    '<option value="">— Выберите факультет —</option>' +
+    allFaculties.map(f => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('');
+}
+function fillCuratorSelect() {
+  const teachers = allUsers.filter(u => u.role === 'teacher');
+  document.getElementById('groupCurator').innerHTML =
+    '<option value="">— Без куратора —</option>' +
+    teachers.map(t => `<option value="${t.id}">${escapeHtml(t.full_name || t.username)}</option>`).join('');
+}
+
+async function saveGroup() {
+  const id = document.getElementById('groupId').value;
+  const name = document.getElementById('groupName').value.trim();
+  const faculty_id = document.getElementById('groupFaculty').value;
+  const curator_id = document.getElementById('groupCurator').value || null;
+  const errBox = document.getElementById('groupError');
+  errBox.classList.add('hidden');
+  if (!name || !faculty_id) {
+    document.getElementById('groupErrorText').textContent = 'Заполните название и факультет';
+    errBox.classList.remove('hidden');
+    return;
+  }
+  try {
+    if (id) {
+      await api('PUT', `/api/groups/${id}`, { name, faculty_id, curator_id });
+    } else {
+      await api('POST', '/api/groups', { name, faculty_id, curator_id });
+    }
+    closeModal('groupModal');
+    showToast(id ? 'Группа обновлена' : 'Группа создана');
+    if (id) { await loadGroups(); openGroupDetail(id); } else { loadGroups(); }
+  } catch (e) {
+    document.getElementById('groupErrorText').textContent = e.message;
+    errBox.classList.remove('hidden');
+  }
+}
+
+async function deleteGroupConfirm() {
+  if (!confirm(`Удалить группу "${currentGroup.name}"? Это действие нельзя отменить.`)) return;
+  try {
+    await api('DELETE', `/api/groups/${currentGroup.id}`);
+    showToast(i18nT('toast.admin.groupDeleted'));
+    closeGroupDetail();
+    loadGroups();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ─────────────────────────────────────────────
+// ГРУППА — ДЕТАЛИ
+// ─────────────────────────────────────────────
+async function openGroupDetail(id) {
+  try {
+    currentGroup = await api('GET', `/api/groups/${id}`);
+    document.getElementById('groupsListView').classList.add('hidden');
+    document.getElementById('groupDetailView').classList.remove('hidden');
+    document.getElementById('gd-name').textContent = currentGroup.name;
+    document.getElementById('gd-faculty').textContent = currentGroup.faculty_name;
+    document.getElementById('gd-curator').textContent = currentGroup.curator_name || 'не назначен';
+    showGroupTab('students');
+    renderGroupStudents();
+    renderGroupTeachers();
+    fillAddStudentSelect();
+    fillAddTeacherSelect();
+  } catch (e) { showToast(i18nT('toast.admin.loadGroupError'), 'error'); }
+}
+
+function closeGroupDetail() {
+  currentGroup = null;
+  document.getElementById('groupsListView').classList.remove('hidden');
+  document.getElementById('groupDetailView').classList.add('hidden');
+}
+
+function showGroupTab(name) {
+  document.querySelectorAll('[id^="grouptab-"]').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.tabs-row button').forEach(b => b.classList.remove('active'));
+  document.getElementById(`grouptab-${name}`).classList.remove('hidden');
+  document.getElementById(`gtab-${name}`).classList.add('active');
+}
+
+function renderGroupStudents() {
+  const el = document.getElementById('groupStudentsList');
+  if (!currentGroup.students.length) {
+    el.innerHTML = `<div class="empty-state"><p>В группе пока нет студентов</p></div>`;
+    return;
+  }
+  el.innerHTML = currentGroup.students.map(s => `
+    <div class="list-row">
+      <div class="lr-main">
+        <div class="lr-title">${escapeHtml(s.full_name || s.username)}</div>
+        <div class="lr-sub">@${escapeHtml(s.username)}</div>
+      </div>
+      <button class="btn-icon" onclick="removeStudentFromGroup(${s.id})" title="Отчислить">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+        </svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function fillAddStudentSelect() {
+  // Исправлено: раньше `.flatMap(() => [])` не давал никакого фильтра,
+  // и в список попадали студенты, уже занятые в других группах — сервер
+  // потом отклонял зачисление с 409. Теперь используем group_id/group_name
+  // из /api/users, чтобы отделить свободных студентов от занятых.
+  const inThisGroup = new Set(currentGroup.students.map(s => s.id));
+  const students = allUsers.filter(u => u.role === 'student' && !inThisGroup.has(u.id));
+  const free = students.filter(u => !u.group_id);
+  const busy = students.filter(u => u.group_id);
+
+  const sel = document.getElementById('addStudentSelect');
+  let html = '<option value="">— Выберите студента —</option>';
+  if (free.length) {
+    html += free.map(s => `<option value="${s.id}">${escapeHtml(s.full_name || s.username)} (@${escapeHtml(s.username)})</option>`).join('');
+  }
+  if (busy.length) {
+    html += `<optgroup label="Уже в другой группе — сначала отчислите">` +
+      busy.map(s => `<option value="${s.id}" disabled>${escapeHtml(s.full_name || s.username)} — ${escapeHtml(s.group_name || 'группа')}</option>`).join('') +
+      `</optgroup>`;
+  }
+  sel.innerHTML = html;
+
+  if (!free.length && busy.length) {
+    showToast(i18nT('toast.admin.allStudentsBusy'), 'error');
+  }
+}
+
+async function addStudentToGroup() {
+  const studentId = document.getElementById('addStudentSelect').value;
+  if (!studentId) return showToast(i18nT('toast.admin.selectStudent'), 'error');
+  try {
+    await api('POST', `/api/groups/${currentGroup.id}/students`, { student_id: studentId });
+    showToast(i18nT('toast.admin.studentEnrolled'));
+    await openGroupDetail(currentGroup.id);
+    loadGroups();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function removeStudentFromGroup(studentId) {
+  if (!confirm('Отчислить студента из группы?')) return;
+  try {
+    await api('DELETE', `/api/groups/${currentGroup.id}/students/${studentId}`);
+    showToast(i18nT('toast.admin.studentExpelled'));
+    await openGroupDetail(currentGroup.id);
+    loadGroups();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function renderGroupTeachers() {
+  const el = document.getElementById('groupTeachersList');
+  if (!currentGroup.teachers.length) {
+    el.innerHTML = `<div class="empty-state"><p><span data-i18n="org.teachersNotAssignedYet">Учителя ещё не назначены</span></p></div>`;
+    return;
+  }
+  el.innerHTML = currentGroup.teachers.map(t => `
+    <div class="list-row">
+      <div class="lr-main">
+        <div class="lr-title">${escapeHtml(t.teacher_name)}</div>
+        <div class="lr-sub">Курс: ${escapeHtml(t.playlist_title)}</div>
+      </div>
+      <button class="btn-icon" onclick="removeTeacherFromGroup(${t.assignment_id})" title="Убрать">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+        </svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function fillAddTeacherSelect() {
+  const teachers = allUsers.filter(u => u.role === 'teacher');
+  document.getElementById('addTeacherSelect').innerHTML =
+    '<option value="">— Выберите учителя —</option>' +
+    teachers.map(t => `<option value="${t.id}">${escapeHtml(t.full_name || t.username)}</option>`).join('');
+  document.getElementById('addTeacherPlaylistSelect').innerHTML = '<option value="">— Сначала выберите учителя —</option>';
+}
+
+function onAddTeacherChange() {
+  const teacherId = parseInt(document.getElementById('addTeacherSelect').value);
+  const sel = document.getElementById('addTeacherPlaylistSelect');
+  if (!teacherId) { sel.innerHTML = '<option value="">— Сначала выберите учителя —</option>'; return; }
+  const playlists = allPlaylists.filter(p => p.teacher_id === teacherId);
+  if (!playlists.length) { sel.innerHTML = '<option value=""><span data-i18n="org.teacherHasNoCourses">У учителя нет курсов</span></option>'; return; }
+  sel.innerHTML = '<option value="">— Выберите курс —</option>' +
+    playlists.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
+}
+
+async function addTeacherToGroup() {
+  const teacher_id = document.getElementById('addTeacherSelect').value;
+  const playlist_id = document.getElementById('addTeacherPlaylistSelect').value;
+  if (!teacher_id || !playlist_id) return showToast(i18nT('toast.admin.selectTeacherCourse'), 'error');
+  try {
+    await api('POST', `/api/groups/${currentGroup.id}/teachers`, { teacher_id, playlist_id });
+    showToast(i18nT('toast.admin.teacherAssigned'));
+    await openGroupDetail(currentGroup.id);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function removeTeacherFromGroup(assignmentId) {
+  if (!confirm('Убрать назначение учителя на эту группу?')) return;
+  try {
+    await api('DELETE', `/api/groups/${currentGroup.id}/teachers/${assignmentId}`);
+    showToast(i18nT('toast.admin.assignmentDeleted'));
+    await openGroupDetail(currentGroup.id);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ─────────────────────────────────────────────
+// РАСПИСАНИЕ
+// ─────────────────────────────────────────────
+async function loadScheduleGroups() {
+  try {
+    if (!allGroups.length) allGroups = await api('GET', '/api/groups');
+    const sel = document.getElementById('scheduleGroupSelect');
+    sel.innerHTML = '<option value="">— Выберите группу —</option>' +
+      allGroups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+  } catch (e) { showToast(i18nT('toast.admin.loadGroupsError'), 'error'); }
+}
+
+const DAY_NAMES = { 1: 'Понедельник', 2: 'Вторник', 3: 'Среда', 4: 'Четверг', 5: 'Пятница', 6: 'Суббота', 7: 'Воскресенье' };
+
+async function loadSchedule() {
+  const groupId = document.getElementById('scheduleGroupSelect').value;
+  const btn = document.getElementById('addScheduleBtn');
+  if (!groupId) { btn.disabled = true; document.getElementById('scheduleView').innerHTML = `<div class="empty-state"><p><span data-i18n="grp.select">Выберите группу</span></p></div>`; return; }
+  btn.disabled = false;
+  try {
+    const items = await api('GET', `/api/schedule?group_id=${groupId}`);
+    const el = document.getElementById('scheduleView');
+    if (!items.length) { el.innerHTML = `<div class="empty-state"><p><span data-i18n="sched.notFilled">Расписание пока не заполнено</span></p></div>`; return; }
+    const byDay = {};
+    items.forEach(i => { (byDay[i.day_of_week] = byDay[i.day_of_week] || []).push(i); });
+    el.innerHTML = Object.keys(byDay).sort((a,b)=>a-b).map(day => `
+      <div class="sched-day">
+        <h4>${DAY_NAMES[day] || 'День ' + day}</h4>
+        ${byDay[day].map(i => `
+          <div class="sched-item">
+            <div class="st-time">${i.start_time}–${i.end_time}</div>
+            <div class="st-info">
+              <div class="st-title">${escapeHtml(i.subject_title || i.playlist_title || 'Занятие')}</div>
+              <div class="st-sub">${i.teacher_name ? escapeHtml(i.teacher_name) : ''}${i.room ? ' · ауд. ' + escapeHtml(i.room) : ''}</div>
+            </div>
+            <button class="btn-icon" onclick="deleteScheduleItem(${i.id})" title="Удалить">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+              </svg>
+            </button>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  } catch (e) { showToast(i18nT('toast.admin.loadScheduleError'), 'error'); }
+}
+
+async function openScheduleModal() {
+  const groupId = document.getElementById('scheduleGroupSelect').value;
+  if (!groupId) return;
+  const group = await api('GET', `/api/groups/${groupId}`);
+  const sel = document.getElementById('schedAssignment');
+  if (!group.teachers.length) {
+    sel.innerHTML = '<option value="">— Учителя ещё не назначены на группу —</option>';
+  } else {
+    sel.innerHTML = '<option value="">— Не выбрано (доп. занятие) —</option>' +
+      group.teachers.map(t => `<option value="${t.teacher_id}|${t.playlist_id}" data-title="${escapeHtml(t.playlist_title)}">${escapeHtml(t.teacher_name)} — ${escapeHtml(t.playlist_title)}</option>`).join('');
+  }
+  document.getElementById('schedTitle').value = '';
+  document.getElementById('schedRoom').value = '';
+  openModal('scheduleModal');
+}
+
+async function saveSchedule() {
+  const groupId = document.getElementById('scheduleGroupSelect').value;
+  const day_of_week = document.getElementById('schedDay').value;
+  const start_time = document.getElementById('schedStart').value;
+  const end_time = document.getElementById('schedEnd').value;
+  const room = document.getElementById('schedRoom').value.trim();
+  const assignVal = document.getElementById('schedAssignment').value;
+  let teacher_id = null, playlist_id = null;
+  let subject_title = document.getElementById('schedTitle').value.trim();
+
+  if (assignVal) {
+    const [tId, pId] = assignVal.split('|');
+    teacher_id = tId; playlist_id = pId;
+    if (!subject_title) {
+      const opt = document.getElementById('schedAssignment').selectedOptions[0];
+      subject_title = opt.dataset.title || '';
+    }
+  }
+  if (!start_time || !end_time) return showToast(i18nT('toast.admin.specifyStartEndTime'), 'error');
+
+  try {
+    await api('POST', '/api/schedule', { group_id: groupId, playlist_id, teacher_id, day_of_week, start_time, end_time, room, subject_title });
+    closeModal('scheduleModal');
+    showToast(i18nT('toast.admin.lessonAdded'));
+    loadSchedule();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function deleteScheduleItem(id) {
+  if (!confirm('Удалить занятие из расписания?')) return;
+  try {
+    await api('DELETE', `/api/schedule/${id}`);
+    showToast(i18nT('toast.admin.lessonDeleted'));
+    loadSchedule();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    ['facultyModal', 'orgEntityModal', 'orgGroupModal', 'groupModal', 'scheduleModal', 'uploadBookModal', 'createPlaylistLibModal', 'addBookModal', 'bookAccessModal'].forEach(id => {
+      if (!document.getElementById(id).classList.contains('hidden')) closeModal(id);
+    });
+  }
+});
+
+// ─────────────────────────────────────────────
+// СТАРТ
+// ─────────────────────────────────────────────
+(async function init() {
+  await loadCommonData();
+  const hashSection = (location.hash || '').replace('#', '');
+  if (hashSection && document.getElementById(`section-${hashSection}`)) {
+    showSection(hashSection);
+  } else {
+    showSection('orgstructure');
+  }
+})();
+</script>
+</body>
+</html>
