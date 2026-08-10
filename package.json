@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Образовательный портал для защиты докторской",
   "main": "server.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "start": "node server.js",
     "backup": "node scripts/backup-db.js"
@@ -10,7 +13,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
     "bcrypt": "^5.1.1",
-    "better-sqlite3": "^9.4.3",
+    "better-sqlite3": "^11.3.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
