@@ -1,15 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 // r2-storage.js — резервное копирование папки uploads/ в Cloudflare R2
 //
-// Зачем: на бесплатном тарифе Render локальный диск НЕ сохраняется между
-// перезапусками сервера. База данных (database.db) уже защищена через
-// Litestream (см. litestream.yml). Этот модуль решает ту же проблему для
-// загруженных пользователями файлов (домашки, видео уроков, книги и т.д.):
-//   - при каждой успешной загрузке файл асинхронно копируется в R2
-//   - при старте сервера все файлы, которых нет локально, скачиваются из R2
-//
-// Если переменные окружения R2_* не заданы — модуль просто ничего не делает
-// (удобно для локальной разработки, где перезапуски не проблема).
+// Для больших видео используем ReadStream вместо fs.readFileSync(), чтобы
+// не блокировать event loop Node.js и не создавать гигантский Buffer в памяти.
 // ─────────────────────────────────────────────────────────────────────────
 
 const fs = require('fs');
@@ -24,7 +17,6 @@ const enabled = !!(R2_BUCKET && R2_ENDPOINT && R2_ACCESS_KEY && R2_SECRET_KEY);
 
 let s3 = null;
 if (enabled) {
-  // Ленивая загрузка, чтобы @aws-sdk/client-s3 не был обязателен, если R2 не используется
   const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
   s3 = {
     client: new S3Client({
@@ -39,23 +31,45 @@ if (enabled) {
   console.log('[r2-storage] R2 не настроен (нет переменных R2_*) — резервное копирование файлов выключено.');
 }
 
-// Загружает один файл в R2 (fire-and-forget, вызывающий код не должен ждать)
+function contentTypeFor(filename) {
+  const ext = path.extname(filename).toLowerCase();
+  const types = {
+    '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
+    '.m4v': 'video/x-m4v', '.mkv': 'video/x-matroska', '.avi': 'video/x-msvideo',
+    '.pdf': 'application/pdf', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.ppt': 'application/vnd.ms-powerpoint',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.txt': 'text/plain; charset=utf-8', '.epub': 'application/epub+zip',
+    '.fb2': 'application/xml', '.rtf': 'application/rtf'
+  };
+  return types[ext] || 'application/octet-stream';
+}
+
+// Fire-and-forget: загрузка в R2 идёт потоково и не блокирует event loop.
 async function uploadFileToR2(localPath, key) {
   if (!enabled) return;
+  const body = fs.createReadStream(localPath);
+  body.on('error', err => console.error(`[r2-storage] Ошибка чтения ${key}:`, err.message));
   try {
-    const body = fs.readFileSync(localPath);
     await s3.client.send(new s3.PutObjectCommand({
       Bucket: R2_BUCKET,
       Key: `uploads/${key}`,
-      Body: body
+      Body: body,
+      ContentType: contentTypeFor(key)
     }));
+    console.log(`[r2-storage] Файл сохранён: ${key}`);
   } catch (err) {
-    console.error(`[r2-storage] Не удалось сохранить резервную копию файла ${key}:`, err.message);
+    console.error(`[r2-storage] Не удалось сохранить резервную копию ${key}:`, err.message);
   }
 }
 
-// Скачивает из R2 все файлы, которых ещё нет в локальной папке uploads/
-// Вызывается один раз при старте сервера.
+// Восстановление из R2 также выполняется потоково, чтобы большой видеофайл
+// не собирался целиком в RAM при старте сервера.
 async function restoreUploadsFromR2(uploadsDir) {
   if (!enabled) return;
   try {
@@ -71,11 +85,15 @@ async function restoreUploadsFromR2(uploadsDir) {
         const filename = obj.Key.replace(/^uploads\//, '');
         if (!filename) continue;
         const localPath = path.join(uploadsDir, filename);
-        if (fs.existsSync(localPath)) continue; // уже есть локально
+        if (fs.existsSync(localPath)) continue;
         const res = await s3.client.send(new s3.GetObjectCommand({ Bucket: R2_BUCKET, Key: obj.Key }));
-        const chunks = [];
-        for await (const chunk of res.Body) chunks.push(chunk);
-        fs.writeFileSync(localPath, Buffer.concat(chunks));
+        const out = fs.createWriteStream(localPath);
+        await new Promise((resolve, reject) => {
+          res.Body.pipe(out);
+          res.Body.on('error', reject);
+          out.on('finish', resolve);
+          out.on('error', reject);
+        });
         restored++;
       }
       continuationToken = list.IsTruncated ? list.NextContinuationToken : undefined;
