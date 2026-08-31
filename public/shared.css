@@ -1637,3 +1637,22 @@ select {
 
 .lesson-row-locked { opacity: 0.7; }
 .lesson-row-locked .lesson-title { color: var(--text2); }
+@media (max-width: 768px) {
+  .main-header {
+    padding: 0 12px;
+    padding-right: 132px;
+    gap: 8px;
+  }
+
+  .main-header h1 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .main-header > .badge,
+  .main-header > .flex {
+    flex-shrink: 0;
+  }
+}
