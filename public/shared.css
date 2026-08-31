@@ -109,6 +109,13 @@
     transform: scale(0.9);
     transform-origin: top right;
   }
+
+  .main-header {
+    margin-top: 68px;
+    position: sticky;
+    top: 68px;
+    z-index: 50;
+  }
 }
 
 /* ─── СБРОС И БАЗОВЫЕ СТИЛИ ─── */
